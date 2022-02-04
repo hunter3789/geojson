@@ -20,7 +20,7 @@
       #background: #e5ffff;
     }
 
-img {image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;}
+    img {image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;}
 
 .map { 
   font-family:arial, helvetica, sans-serif;
@@ -135,52 +135,6 @@ var lcc_attrs = {
     map.on('moveend', fnImgOffset);
     map.on('click', printLatLng);
 
-
-    function swapImgs() {
-      // Workaround for the fact that "load" event fires only the very first time, when browser has fetched the image from network.
-      // After that, browser serves from its cache and does not fire "load".
-      // But the <img> element now has the `complete` property true.
-	  /*
-      var img = L.imageOverlay(url, bounds, {interactive: true});
-      img.on('click', function(e) {console.log(e.containerPoint);});
-      next = img;
-
-      if (next.getElement() && next.getElement().complete) {
-        map.addLayer(next);
-        removeCurrent();
-      }
-      else {
-        next.once('load', function() {
-          removeCurrent();
-        });
-        map.addLayer(next);
-      }
-*/
-      if (url == url1) {
-        url = url2;
-      }
-      else {
-        url = url1;
-      }
-
-      img.setUrl(url);
-      console.log(img.getElement());
-    }
-
-    function removeCurrent() {
-      if (current != undefined) {
-        map.removeLayer(current);
-      }
-      current = next;
-
-      if (url == url1) {
-        url = url2;
-      }
-      else {
-        url = url1;
-      }
-    }
-
    function removeImg() {
      map.removeLayer(img);
    }
@@ -194,11 +148,6 @@ var lcc_attrs = {
      console.log(e.latlng);
    }
 
-   function doKey(event, opt) {
-      if(event.keyCode == 39) {   // Ctrl + 오른 화살표
-        //swapImgs();
-      }
-   }
 
 function fnImgOffset() {
      //console.log(e.target.getElement().offsetTop, e.target.getElement().offsetLeft);
@@ -444,23 +393,7 @@ function fnGeoJson() {
   };
   xhr.send();
 }
-
-// 툴팁 위치 조정
-function fnSetPosition()
-{/*
-  if (ani == 0) var img_frame = 1;
-  else var img_frame = document.getElementById("ani_frame").value;
-  var img = document.getElementById("img" + img_frame);
-  var top = img.getBoundingClientRect().top;
-  var left = img.getBoundingClientRect().left;
-
-  var pop = document.getElementById("gts_body").querySelectorAll('.pop');
-  console.log(pop);
-  for (var i=0; i<pop.length; i++) {
-    pop[i].style.transform = "translate(" + parseInt(left) + "px, " + parseInt(top) + "px)";
-  }
-*/
-}
+	
   </script>
 </body>
 
