@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet-src.js"></script>
+  <script type="text/javascript" src="./proj4.js"></script>
+  <script type="text/javascript" src="./proj4leaflet.js"></script>
+  <script type="text/javascript" src="./L.Graticule.js"></script>
+
+  <style>
+    html,
+    body {
+      height: 95%;
+    }
+    
+    #map {
+      width: 850px;
+      height: 850px;
+      #background: #e5ffff;
+    }
+
+img {image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;}
+
+.map { 
+  font-family:arial, helvetica, sans-serif;
+  font-size:10pt;
+}
+.map li {
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+.map li a {
+  position:absolute;
+  display:block;
+  white-space:normal;
+  text-decoration:none;
+  color:#000;
+}
+.map li a span { display:none; }
+.map li a:hover span {
+  position:relative;
+  display:block;
+  white-space:normal;
+  width:130px;
+  left:20px;
+  top:20px;
+  border:1px solid #000;
+  background:#fff;
+  padding:5px;
+  filter:alpha(opacity=80);
+  opacity:0.8;
+}
+  </style>
+</head>
+
+<body onkeydown='doKey(event,0);'>
+  <div id="map" style="border:1px solid black;"></div>
+  <ul id='tooltip' class='map' style='z-index:500;'></ul>
+
+  <script>
+
+var lcc_attrs = {
+    proj4string: "+proj=Polar_Stereographic +lat_0=90 +lat_ts=90 +lon_0=120 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs",
+    //resolutions: [ 38.443359375, 25.62890625, 17.0859375, 11.390625, 7.59375, 5.0625, 3.375, 2.25, 1.5, 1.],
+	/*
+    resolutions: [ 176389.241667372, 88194.6208336861, 44097.310416843, 22577.8229334236,
+                      14675.5849067253, 11288.9114667118, 8466.68360003386, 5644.45573335591,
+                      3386.67344001354, 2822.22786667795, 2257.78229334236, 2116.67090000846,
+                      1411.11393333897, 705.556966669489, 352.778483334744, 176.389241667372,
+                      88.1946208336861, 44.097310416843, 22.5778229334236, 11.2889114667118,
+                      5.64445573335591, 2.82222786667795],
+*/
+    resolutions: [ 23600, 15733.3333, 10488.8889,
+                      6992.5296, 1655.8025, 1103.8683,
+                      735.9122, 490.6081, 327.0721, 218.0481],
+    zoom: {
+        min: 0,
+        max: 8
+    }
+};
+
+    var lcc_crs = new L.Proj.CRS('EPSG:3031', lcc_attrs.proj4string,
+        {
+            resolutions: lcc_attrs.resolutions //rss
+        }
+    );
+
+
+    var bounds = [
+      [-6.173436164855881, -15.002862930297972],
+      [-6.173436164856084, 165.00286865234375]
+    ];
+
+
+    var map = L.map('map', {
+        maxZoom: lcc_attrs.zoom.max, //6,
+        minZoom: lcc_attrs.zoom.min, //0,
+        crs: lcc_crs,
+        continuousWorld: false,
+        worldCopyJump: false,
+        maxBounds: bounds,
+        maxBoundsViscosity: 0.5
+    }).setView([90, 120], 0);
+
+    L.graticule({ interval:10, style:{dashArray:4, color:'#333', weight:1}, pmIgnore:true, snapIgnore:true}).addTo(map);
+
+    // pane 추가
+    var mapPaneName1 = "geojson";
+    var mapPaneName2 = "image";
+
+    // pane layer 생성
+    map.createPane(mapPaneName1);
+    map.createPane(mapPaneName2);
+
+    // pane layer z-inex set
+    map.getPane(mapPaneName1).style.zIndex = 0;
+    map.getPane(mapPaneName2).style.zIndex = 100;
+
+    // pane layer 마우스 및 클릭 이벤트
+    map.getPane(mapPaneName1).style.pointerEvents = 'none';
+    map.getPane(mapPaneName2).style.pointerEvents = 'none';
+
+    //fnGeoJson();
+
+    var current, next;
+    var url;
+    var url1 = 'https://c1.staticflickr.com/2/1696/26529046625_df32b8b863_c.jpg';
+    var url2 = 'https://c1.staticflickr.com/2/1469/25926137293_a2b96bf9c6_c.jpg';
+
+    url = url1;
+    var img = L.imageOverlay(url, bounds, {pane: "image"});
+    img.addTo(map);
+    img.getElement().setAttribute("id", "img");
+    fnCallApi();
+
+    map.on('zoomstart', removeImg);
+    map.on('zoomend', addImg);
+    map.on('moveend', fnImgOffset);
+    map.on('click', printLatLng);
+
+
+    function swapImgs() {
+      // Workaround for the fact that "load" event fires only the very first time, when browser has fetched the image from network.
+      // After that, browser serves from its cache and does not fire "load".
+      // But the <img> element now has the `complete` property true.
+	  /*
+      var img = L.imageOverlay(url, bounds, {interactive: true});
+      img.on('click', function(e) {console.log(e.containerPoint);});
+      next = img;
+
+      if (next.getElement() && next.getElement().complete) {
+        map.addLayer(next);
+        removeCurrent();
+      }
+      else {
+        next.once('load', function() {
+          removeCurrent();
+        });
+        map.addLayer(next);
+      }
+*/
+      if (url == url1) {
+        url = url2;
+      }
+      else {
+        url = url1;
+      }
+
+      img.setUrl(url);
+      console.log(img.getElement());
+    }
+
+    function removeCurrent() {
+      if (current != undefined) {
+        map.removeLayer(current);
+      }
+      current = next;
+
+      if (url == url1) {
+        url = url2;
+      }
+      else {
+        url = url1;
+      }
+    }
+
+   function removeImg() {
+     map.removeLayer(img);
+   }
+
+   function addImg() {
+     fnCallApi();
+     map.addLayer(img);
+   }
+
+   function printLatLng(e) {
+     console.log(e.latlng);
+   }
+
+   function doKey(event, opt) {
+      if(event.keyCode == 39) {   // Ctrl + 오른 화살표
+        //swapImgs();
+      }
+   }
+
+   function fnImgOffset() {
+     //console.log(e.target.getElement().offsetTop, e.target.getElement().offsetLeft);
+     e = img;
+     //console.log(e);
+
+     var paneOffset = getComputedStyle(e.getElement().parentNode.parentNode).transform.match(/matrix.*\((.+)\)/)[1].split(', ');
+     var paneX = paneOffset[4];
+     var paneY = paneOffset[5];
+
+     var offsetX = parseFloat(paneX) + parseFloat(e._image._leaflet_pos.x);
+     var offsetY = parseFloat(paneY) + parseFloat(e._image._leaflet_pos.y);
+
+     var offsetRate = parseFloat(e._image.offsetHeight)/parseFloat(e._image.naturalHeight);
+
+     console.log(offsetX, offsetY, offsetRate);
+
+  var pop = document.getElementById("tooltip").querySelectorAll('.pop');
+  //console.log(pop);
+  for (var i=0; i<pop.length; i++) {
+    pop[i].style.transform = "translate(" + parseInt(offsetX) + "px, " + parseInt(offsetY) + "px)";
+  }
+
+   }
+
+// API 호출
+function fnCallApi() {
+      var json =
+{
+  "data": [
+    {"stn_id":"90", "stn_tp":"A", "x":"464", "y":"685", "wd":"138", "ws":"1.4", "ta":"-5.2", "td":"-21.3", "ps":"1020.3", "pm10":"0", "wh":"-99.9"},
+    {"stn_id":"22955", "stn_tp":"K", "x":"464", "y":"758", "wd":"0", "ws":"-99.0", "ta":"-99.0", "td":"-99.9", "ps":"1028.2", "pm10":"0", "wh":"0.0"},
+    {"stn_id":"47401", "stn_tp":"S", "x":"507", "y":"631", "wd":"350", "ws":"6.5", "ta":"-5.1", "td":"-7.4", "ps":"1004.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47662", "stn_tp":"S", "x":"518", "y":"686", "wd":"320", "ws":"1.5", "ta":"3.8", "td":"-2.0", "ps":"1007.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47991", "stn_tp":"S", "x":"620", "y":"714", "wd":"220", "ws":"4.0", "ta":"21.6", "td":"15.9", "ps":"1014.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2044", "stn_tp":"S", "x":"319", "y":"407", "wd":"60", "ws":"2.0", "ta":"-16.8", "td":"-18.5", "ps":"991.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2635", "stn_tp":"S", "x":"264", "y":"376", "wd":"210", "ws":"4.0", "ta":"5.8", "td":"5.1", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"3827", "stn_tp":"S", "x":"263", "y":"315", "wd":"300", "ws":"8.0", "ta":"8.7", "td":"1.8", "ps":"1017.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"7650", "stn_tp":"S", "x":"213", "y":"327", "wd":"290", "ws":"6.0", "ta":"13.1", "td":"6.2", "ps":"1017.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"8391", "stn_tp":"S", "x":"207", "y":"268", "wd":"220", "ws":"1.0", "ta":"15.2", "td":"8.7", "ps":"1023.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"71805", "stn_tp":"S", "x":"410", "y":"210", "wd":"60", "ws":"4.0", "ta":"2.7", "td":"2.6", "ps":"1021.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"14654", "stn_tp":"S", "x":"198", "y":"378", "wd":"320", "ws":"2.0", "ta":"12.2", "td":"-2.9", "ps":"1014.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"17130", "stn_tp":"S", "x":"172", "y":"437", "wd":"320", "ws":"2.5", "ta":"0.6", "td":"-7.6", "ps":"1016.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"41170", "stn_tp":"S", "x":"105", "y":"551", "wd":"100", "ws":"4.0", "ta":"21.8", "td":"13.8", "ps":"1011.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"60030", "stn_tp":"S", "x":"196", "y":"192", "wd":"160", "ws":"5.0", "ta":"21.7", "td":"10.5", "ps":"1017.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"4231", "stn_tp":"S", "x":"407", "y":"316", "wd":"270", "ws":"5.0", "ta":"-13.0", "td":"-17.7", "ps":"986.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"17285", "stn_tp":"S", "x":"165", "y":"488", "wd":"140", "ws":"0.5", "ta":"-0.3", "td":"-0.8", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"60612", "stn_tp":"S", "x":"85", "y":"291", "wd":"0", "ws":"0.0", "ta":"17.6", "td":"-7.9", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"60619", "stn_tp":"S", "x":"138", "y":"276", "wd":"70", "ws":"4.0", "ta":"22.3", "td":"-10.7", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"78925", "stn_tp":"S", "x":"432", "y":"7", "wd":"110", "ws":"6.6", "ta":"28.6", "td":"19.8", "ps":"1016.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"1008", "stn_tp":"S", "x":"370", "y":"410", "wd":"131", "ws":"4.8", "ta":"-7.4", "td":"-12.2", "ps":"1011.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"4005", "stn_tp":"S", "x":"356", "y":"333", "wd":"40", "ws":"6.7", "ta":"-2.1", "td":"-4.6", "ps":"1002.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"8506", "stn_tp":"S", "x":"288", "y":"201", "wd":"50", "ws":"8.0", "ta":"15.2", "td":"-99.9", "ps":"1028.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"46035", "stn_tp":"H", "x":"567", "y":"499", "wd":"130", "ws":"3.0", "ta":"2.2", "td":"-99.9", "ps":"986.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"51101", "stn_tp":"H", "x":"766", "y":"498", "wd":"170", "ws":"7.0", "ta":"23.5", "td":"19.7", "ps":"1014.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"51002", "stn_tp":"H", "x":"821", "y":"478", "wd":"100", "ws":"7.0", "ta":"24.2", "td":"20.5", "ps":"1014.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"46077", "stn_tp":"H", "x":"580", "y":"436", "wd":"240", "ws":"10.0", "ta":"3.1", "td":"-0.6", "ps":"997.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"VRIZ9", "stn_tp":"H", "x":"747", "y":"413", "wd":"120", "ws":"10.0", "ta":"19.0", "td":"13.8", "ps":"1023.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"WDD2074", "stn_tp":"H", "x":"603", "y":"385", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1000.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"46006", "stn_tp":"H", "x":"667", "y":"370", "wd":"300", "ws":"4.0", "ta":"-99.9", "td":"-99.9", "ps":"1031.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"KS1043", "stn_tp":"H", "x":"711", "y":"294", "wd":"40", "ws":"7.5", "ta":"15.1", "td":"11.0", "ps":"1027.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"WCAJ", "stn_tp":"H", "x":"657", "y":"318", "wd":"340", "ws":"10.0", "ta":"9.0", "td":"-99.9", "ps":"1030.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"CGBY", "stn_tp":"H", "x":"608", "y":"333", "wd":"250", "ws":"3.0", "ta":"6.2", "td":"-99.9", "ps":"1027.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"XCBJ8", "stn_tp":"H", "x":"692", "y":"201", "wd":"210", "ws":"11.5", "ta":"15.6", "td":"9.1", "ps":"1019.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"XCBR6", "stn_tp":"H", "x":"694", "y":"148", "wd":"0", "ws":"-1.0", "ta":"19.1", "td":"15.2", "ps":"1014.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"CZ9742", "stn_tp":"H", "x":"541", "y":"269", "wd":"310", "ws":"3.5", "ta":"-26.4", "td":"-29.5", "ps":"1036.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"42020", "stn_tp":"H", "x":"623", "y":"158", "wd":"340", "ws":"14.0", "ta":"4.7", "td":"3.9", "ps":"1031.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"42040", "stn_tp":"H", "x":"575", "y":"144", "wd":"340", "ws":"11.0", "ta":"13.3", "td":"12.4", "ps":"1021.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"9HA3047", "stn_tp":"H", "x":"578", "y":"94", "wd":"100", "ws":"10.0", "ta":"24.0", "td":"-99.9", "ps":"1019.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"CGDS", "stn_tp":"H", "x":"518", "y":"204", "wd":"20", "ws":"2.5", "ta":"-10.3", "td":"-12.9", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"41004", "stn_tp":"H", "x":"522", "y":"144", "wd":"210", "ws":"9.0", "ta":"21.5", "td":"19.7", "ps":"1020.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"C6PT7", "stn_tp":"H", "x":"527", "y":"95", "wd":"0", "ws":"-1.0", "ta":"24.5", "td":"19.6", "ps":"1023.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"CGCC", "stn_tp":"H", "x":"469", "y":"214", "wd":"60", "ws":"7.0", "ta":"-12.5", "td":"-15.3", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"41046", "stn_tp":"H", "x":"476", "y":"75", "wd":"70", "ws":"10.0", "ta":"24.2", "td":"20.3", "ps":"1023.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"41044", "stn_tp":"H", "x":"415", "y":"57", "wd":"0", "ws":"10.0", "ta":"-99.9", "td":"-99.9", "ps":"1020.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"KOGC", "stn_tp":"H", "x":"393", "y":"106", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1024.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"41040", "stn_tp":"H", "x":"376", "y":"9", "wd":"80", "ws":"4.0", "ta":"24.9", "td":"16.7", "ps":"1017.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"WMDQ", "stn_tp":"H", "x":"359", "y":"175", "wd":"0", "ws":"-1.0", "ta":"18.8", "td":"14.9", "ps":"1027.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"A8WP6", "stn_tp":"H", "x":"188", "y":"137", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1015.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"WSNU", "stn_tp":"H", "x":"137", "y":"110", "wd":"40", "ws":"5.0", "ta":"28.1", "td":"17.3", "ps":"1010.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"KS1079", "stn_tp":"H", "x":"15", "y":"73", "wd":"150", "ws":"4.0", "ta":"27.2", "td":"26.6", "ps":"1011.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"WMKN", "stn_tp":"H", "x":"13", "y":"554", "wd":"0", "ws":"-1.0", "ta":"26.4", "td":"19.8", "ps":"1011.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"WUSD", "stn_tp":"H", "x":"101", "y":"617", "wd":"0", "ws":"-1.0", "ta":"25.5", "td":"17.5", "ps":"1011.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"WMDK", "stn_tp":"H", "x":"145", "y":"672", "wd":"0", "ws":"-1.0", "ta":"21.2", "td":"14.0", "ps":"1010.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"VROX5", "stn_tp":"H", "x":"375", "y":"833", "wd":"70", "ws":"10.0", "ta":"25.0", "td":"23.5", "ps":"1028.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"EUCDE13", "stn_tp":"H", "x":"336", "y":"121", "wd":"0", "ws":"-1.0", "ta":"19.7", "td":"15.2", "ps":"1018.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"BGT9CMU", "stn_tp":"H", "x":"147", "y":"13", "wd":"90", "ws":"12.6", "ta":"25.2", "td":"22.7", "ps":"1012.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"EUCDE30", "stn_tp":"H", "x":"16", "y":"149", "wd":"0", "ws":"-1.0", "ta":"29.2", "td":"25.1", "ps":"1010.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"EUCDE44", "stn_tp":"H", "x":"111", "y":"438", "wd":"0", "ws":"-1.0", "ta":"16.6", "td":"8.2", "ps":"1014.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"GWHZ3MM", "stn_tp":"H", "x":"61", "y":"480", "wd":"0", "ws":"-1.0", "ta":"21.9", "td":"10.9", "ps":"1014.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"EUMDE06", "stn_tp":"H", "x":"69", "y":"725", "wd":"0", "ws":"6.1", "ta":"27.2", "td":"22.0", "ps":"1009.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"EUMDE43", "stn_tp":"H", "x":"117", "y":"805", "wd":"75", "ws":"3.7", "ta":"27.6", "td":"22.9", "ps":"1009.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"EUMDE37", "stn_tp":"H", "x":"179", "y":"843", "wd":"80", "ws":"10.3", "ta":"26.0", "td":"24.0", "ps":"1010.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"MERFR22", "stn_tp":"H", "x":"605", "y":"814", "wd":"50", "ws":"10.2", "ta":"28.6", "td":"-99.9", "ps":"1011.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"6301678", "stn_tp":"B", "x":"248", "y":"98", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1019.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"6204596", "stn_tp":"B", "x":"287", "y":"252", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1035.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"1301612", "stn_tp":"B", "x":"260", "y":"147", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1022.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"1301700", "stn_tp":"B", "x":"230", "y":"50", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1016.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"1301764", "stn_tp":"B", "x":"84", "y":"72", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1011.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101510", "stn_tp":"B", "x":"682", "y":"454", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1009.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101528", "stn_tp":"B", "x":"447", "y":"846", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1014.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101593", "stn_tp":"B", "x":"763", "y":"662", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1013.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101622", "stn_tp":"B", "x":"714", "y":"561", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1013.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101635", "stn_tp":"B", "x":"638", "y":"618", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1006.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101687", "stn_tp":"B", "x":"618", "y":"540", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"987.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101690", "stn_tp":"B", "x":"667", "y":"503", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"997.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101803", "stn_tp":"B", "x":"574", "y":"604", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"996.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"3200303", "stn_tp":"B", "x":"707", "y":"19", "wd":"0", "ws":"-1.0", "ta":"25.5", "td":"24.1", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"3200315", "stn_tp":"B", "x":"804", "y":"107", "wd":"0", "ws":"6.1", "ta":"24.8", "td":"22.3", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"3201832", "stn_tp":"B", "x":"748", "y":"189", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1016.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"3201844", "stn_tp":"B", "x":"758", "y":"363", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1025.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"3201846", "stn_tp":"B", "x":"792", "y":"248", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1015.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"4101844", "stn_tp":"B", "x":"305", "y":"22", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1016.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"4402606", "stn_tp":"B", "x":"358", "y":"258", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1015.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"4601675", "stn_tp":"B", "x":"568", "y":"726", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1010.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"4601812", "stn_tp":"B", "x":"460", "y":"443", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1015.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"4701660", "stn_tp":"B", "x":"487", "y":"354", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1011.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"4802539", "stn_tp":"B", "x":"521", "y":"408", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1017.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"5102805", "stn_tp":"B", "x":"817", "y":"630", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1010.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"5200001", "stn_tp":"B", "x":"793", "y":"793", "wd":"74", "ws":"6.6", "ta":"28.1", "td":"25.3", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"5201693", "stn_tp":"B", "x":"728", "y":"717", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1012.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"6102786", "stn_tp":"B", "x":"129", "y":"366", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1026.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"6401761", "stn_tp":"B", "x":"409", "y":"263", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1019.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"5103570", "stn_tp":"B", "x":"819", "y":"413", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1015.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"4102634", "stn_tp":"B", "x":"495", "y":"19", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1017.1", "pm10":"0", "wh":"-99.0"}
+  ],
+  "img": "./gts_SFC_jun_202202041400_area=NHEM_layer=MBCGTA_size=850_pnts=1_fontsize=1.00_zoomx=0000000_zoomy=0000000_border=0_wpf=1_amdar=0_colorwind=1_tmfc=2022020400_model=UM_cont=nwp_asia_SFC.png"
+};
+
+      img.setUrl(json.img);
+img.on('load', function() {
+     e = img;
+
+     var paneOffset = getComputedStyle(e.getElement().parentNode.parentNode).transform.match(/matrix.*\((.+)\)/)[1].split(', ');
+     var paneX = paneOffset[4];
+     var paneY = paneOffset[5];
+
+     var offsetX = parseFloat(paneX) + parseFloat(e._image._leaflet_pos.x);
+     var offsetY = parseFloat(paneY) + parseFloat(e._image._leaflet_pos.y);
+
+     var offsetRateX = parseFloat(e._image.offsetWidth)/parseFloat(e._image.naturalWidth);
+     var offsetRateY = parseFloat(e._image.offsetHeight)/parseFloat(e._image.naturalHeight);
+
+
+        var item = document.getElementById("tooltip");
+        while (item.hasChildNodes()) {
+          item.removeChild(item.childNodes[0]);
+        }
+
+      for (var i=0; i<json.data.length; i++) {
+        var li = document.createElement("li");
+        var d_li = "<a class=pop href=\"javascript:gts_stn_view('" + json.data[i].stn_tp + "', '" + json.data[i].stn_id + "');\"";
+        d_li += " style=\"z-index:500; width:10px; height:10px; top:" + parseFloat(parseFloat(json.data[i].y)*offsetRateY + 5) + "px; left:" + parseFloat(parseFloat(json.data[i].x)*offsetRateX + 5) + "px;\">";
+        d_li += "<span><b>";
+        if (json.data[i].stn_tp == "DK") var tp = "A";
+        else var tp = json.data[i].stn_tp;
+        d_li += "(" + json.data[i].stn_id + ")</b>";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ps > 0) d_li += "<br>해면기압: " + json.data[i].ps + "hPa";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ta > -90) d_li += "<br>기온: " + json.data[i].ta + "℃";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].td > -90) d_li += "<br>노점온도: " + json.data[i].td + "℃";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ws >= 0)  d_li += "<br>바람: " + json.data[i].wd + "º/" + json.data[i].ws + "m/s";
+        if (json.data[i].pm10 > 0) d_li += "<br>PM10: " + json.data[i].pm10 + "㎍/㎥";
+        if (json.data[i].stn_tp == "K" && json.data[i].wh > -90)  d_li += "<br>유의파고: " + json.data[i].wh + "m";
+        d_li += "</span></a>"; 
+        li.innerHTML = d_li;
+        document.getElementById("tooltip").appendChild(li);
+      }
+
+  var pop = document.getElementById("tooltip").querySelectorAll('.pop');
+  console.log(pop);
+  for (var i=0; i<pop.length; i++) {
+    pop[i].style.transform = "translate(" + parseInt(offsetX) + "px, " + parseInt(offsetY) + "px)";
+  }
+        });
+}
+
+function fnGeoJson() {
+ var url = "https://raw.githubusercontent.com/hunter3789/geojson/b1a289dfc2186eb3b7a0d88a8e1211ab601d9d6d/countries.geojson";
+ var xhr = new XMLHttpRequest();
+  xhr.open("GET", url, true);
+  xhr.timeout = 60000;
+  xhr.overrideMimeType("application/x-www-form-urlencoded; charset=euc-kr");
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState != 4 || xhr.status != 200) return;
+    else  {
+      var json = JSON.parse(xhr.responseText);
+      console.log(json);
+      L.geoJSON(json, {style: {color: "black", fillColor: "#ffffe5", weight: 1, fillOpacity: 0}, pane: "geojson"}).addTo(map);
+    }
+  };
+  xhr.send();
+}
+
+// 툴팁 위치 조정
+function fnSetPosition()
+{/*
+  if (ani == 0) var img_frame = 1;
+  else var img_frame = document.getElementById("ani_frame").value;
+  var img = document.getElementById("img" + img_frame);
+  var top = img.getBoundingClientRect().top;
+  var left = img.getBoundingClientRect().left;
+
+  var pop = document.getElementById("gts_body").querySelectorAll('.pop');
+  console.log(pop);
+  for (var i=0; i<pop.length; i++) {
+    pop[i].style.transform = "translate(" + parseInt(left) + "px, " + parseInt(top) + "px)";
+  }
+*/
+}
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet-src.js"></script>
+  <script type="text/javascript" src="./proj4.js"></script>
+  <script type="text/javascript" src="./proj4leaflet.js"></script>
+  <script type="text/javascript" src="./L.Graticule.js"></script>
+
+  <style>
+    html,
+    body {
+      height: 95%;
+    }
+    
+    #map {
+      width: 1150px;
+      height: 95%;
+      #background: #e5ffff;
+    }
+
+img {image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;}
+
+.map { 
+  font-family:arial, helvetica, sans-serif;
+  font-size:10pt;
+}
+.map li {
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+.map li a {
+  position:absolute;
+  display:block;
+  white-space:normal;
+  text-decoration:none;
+  color:#000;
+}
+.map li a span { display:none; }
+.map li a:hover span {
+  position:relative;
+  display:block;
+  white-space:normal;
+  width:130px;
+  left:20px;
+  top:20px;
+  border:1px solid #000;
+  background:#fff;
+  padding:5px;
+  filter:alpha(opacity=80);
+  opacity:0.8;
+}
+  </style>
+</head>
+
+<body onkeydown='doKey(event,0);'>
+  <div id="map" style="border:1px solid black;"></div>
+  <ul id='tooltip' class='map' style='z-index:500;'></ul>
+
+  <script>
+
+var lcc_attrs = {
+    proj4string: "+proj=lcc +lat_1=30 +lat_2=60 +lat_0=0 +lon_0=126 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs",
+    //resolutions: [ 38.443359375, 25.62890625, 17.0859375, 11.390625, 7.59375, 5.0625, 3.375, 2.25, 1.5, 1.],
+	/*
+    resolutions: [ 176389.241667372, 88194.6208336861, 44097.310416843, 22577.8229334236,
+                      14675.5849067253, 11288.9114667118, 8466.68360003386, 5644.45573335591,
+                      3386.67344001354, 2822.22786667795, 2257.78229334236, 2116.67090000846,
+                      1411.11393333897, 705.556966669489, 352.778483334744, 176.389241667372,
+                      88.1946208336861, 44.097310416843, 22.5778229334236, 11.2889114667118,
+                      5.64445573335591, 2.82222786667795],
+*/
+    resolutions: [ 8382.5, 5588.3333, 3725.5555,
+                      2483.7037, 1655.8025, 1103.8683,
+                      735.9122, 490.6081, 327.0721, 218.0481],
+    zoom: {
+        min: 0,
+        max: 8
+    }
+};
+
+    var lcc_crs = new L.Proj.CRS('EPSG:2154', lcc_attrs.proj4string,
+        {
+            resolutions: lcc_attrs.resolutions //rss
+        }
+    );
+    var map = L.map('map', {
+        maxZoom: lcc_attrs.zoom.max, //6,
+        minZoom: lcc_attrs.zoom.min, //0,
+        crs: lcc_crs,
+        continuousWorld: false,
+        worldCopyJump: false
+    }).setView([41, 115], 0);
+
+    L.graticule({ interval:5, style:{dashArray:4, color:'#333', weight:1}, pmIgnore:true, snapIgnore:true}).addTo(map);
+
+    // pane 추가
+    var mapPaneName1 = "geojson";
+    var mapPaneName2 = "image";
+
+    // pane layer 생성
+    map.createPane(mapPaneName1);
+    map.createPane(mapPaneName2);
+
+    // pane layer z-inex set
+    map.getPane(mapPaneName1).style.zIndex = 0;
+    map.getPane(mapPaneName2).style.zIndex = 100;
+
+    // pane layer 마우스 및 클릭 이벤트
+    map.getPane(mapPaneName1).style.pointerEvents = 'none';
+    map.getPane(mapPaneName2).style.pointerEvents = 'none';
+
+    //fnGeoJson();
+
+    var bounds = [
+      [41.7378845, 39.6952400],
+      [6.1341333, 156.7159729]
+    ];
+
+    var current, next;
+    var url;
+    var url1 = 'https://c1.staticflickr.com/2/1696/26529046625_df32b8b863_c.jpg';
+    var url2 = 'https://c1.staticflickr.com/2/1469/25926137293_a2b96bf9c6_c.jpg';
+
+    url = url1;
+    var img = L.imageOverlay(url, bounds, {pane: "image"});
+    img.addTo(map);
+    img.getElement().setAttribute("id", "img");
+    fnCallApi();
+
+    map.on('zoomstart', removeImg);
+    map.on('zoomend', addImg);
+    map.on('moveend', fnImgOffset);
+    map.on('click', printLatLng);
+
+
+    function swapImgs() {
+      // Workaround for the fact that "load" event fires only the very first time, when browser has fetched the image from network.
+      // After that, browser serves from its cache and does not fire "load".
+      // But the <img> element now has the `complete` property true.
+	  /*
+      var img = L.imageOverlay(url, bounds, {interactive: true});
+      img.on('click', function(e) {console.log(e.containerPoint);});
+      next = img;
+
+      if (next.getElement() && next.getElement().complete) {
+        map.addLayer(next);
+        removeCurrent();
+      }
+      else {
+        next.once('load', function() {
+          removeCurrent();
+        });
+        map.addLayer(next);
+      }
+*/
+      if (url == url1) {
+        url = url2;
+      }
+      else {
+        url = url1;
+      }
+
+      img.setUrl(url);
+      console.log(img.getElement());
+    }
+
+    function removeCurrent() {
+      if (current != undefined) {
+        map.removeLayer(current);
+      }
+      current = next;
+
+      if (url == url1) {
+        url = url2;
+      }
+      else {
+        url = url1;
+      }
+    }
+
+   function removeImg() {
+     map.removeLayer(img);
+   }
+
+   function addImg() {
+     fnCallApi();
+     map.addLayer(img);
+   }
+
+   function printLatLng(e) {
+     console.log(e.latlng);
+   }
+
+   function doKey(event, opt) {
+      if(event.keyCode == 39) {   // Ctrl + 오른 화살표
+        //swapImgs();
+      }
+   }
+
+function fnImgOffset() {
+     //console.log(e.target.getElement().offsetTop, e.target.getElement().offsetLeft);
+     e = img;
+     //console.log(e);
+   // img.on('move', function() {
+
+     var paneOffset = getComputedStyle(e.getElement().parentNode.parentNode).transform.match(/matrix.*\((.+)\)/)[1].split(', ');
+     var paneX = paneOffset[4];
+     var paneY = paneOffset[5];
+
+     var offsetX = parseFloat(paneX) + parseFloat(e._image._leaflet_pos.x);
+     var offsetY = parseFloat(paneY) + parseFloat(e._image._leaflet_pos.y);
+
+     var offsetRate = parseFloat(e._image.offsetHeight)/parseFloat(e._image.naturalHeight);
+
+     console.log(parseFloat(paneX), offsetX, offsetY, offsetRate);
+
+  var pop = document.getElementById("tooltip").querySelectorAll('.pop');
+  //console.log(pop);
+  for (var i=0; i<pop.length; i++) {
+    pop[i].style.transform = "translate(" + parseInt(offsetX) + "px, " + parseInt(offsetY) + "px)";
+  }
+
+  // });
+}
+
+// API 호출
+function fnCallApi() {
+      var json =
+{
+  "data": [
+    {"stn_id":"90", "stn_tp":"A", "x":"703", "y":"449", "wd":"278", "ws":"4.5", "ta":"-2.5", "td":"-21.3", "ps":"1018.9", "pm10":"0", "wh":"-99.9"},
+    {"stn_id":"170", "stn_tp":"A", "x":"685", "y":"499", "wd":"314", "ws":"2.0", "ta":"2.2", "td":"-4.5", "ps":"1024.9", "pm10":"0", "wh":"-99.9"},
+    {"stn_id":"22955", "stn_tp":"K", "x":"687", "y":"605", "wd":"0", "ws":"-99.0", "ta":"-99.0", "td":"-99.9", "ps":"1026.1", "pm10":"0", "wh":"0.0"},
+    {"stn_id":"28440", "stn_tp":"S", "x":"258", "y":"29", "wd":"140", "ws":"2.0", "ta":"-1.7", "td":"-3.3", "ps":"1015.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"28493", "stn_tp":"S", "x":"332", "y":"94", "wd":"190", "ws":"4.0", "ta":"-3.7", "td":"-8.5", "ps":"1025.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"29430", "stn_tp":"S", "x":"393", "y":"140", "wd":"140", "ws":"1.0", "ta":"-7.2", "td":"-12.0", "ps":"1035.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"29581", "stn_tp":"S", "x":"461", "y":"177", "wd":"0", "ws":"0.0", "ta":"-12.6", "td":"-16.1", "ps":"1039.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"30673", "stn_tp":"S", "x":"629", "y":"248", "wd":"320", "ws":"2.0", "ta":"-13.6", "td":"-24.5", "ps":"1028.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"30758", "stn_tp":"S", "x":"578", "y":"264", "wd":"70", "ws":"1.0", "ta":"-14.6", "td":"-21.4", "ps":"1034.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"31445", "stn_tp":"S", "x":"694", "y":"280", "wd":"290", "ws":"3.0", "ta":"-16.9", "td":"-26.7", "ps":"1019.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"31873", "stn_tp":"S", "x":"746", "y":"348", "wd":"280", "ws":"1.0", "ta":"-16.0", "td":"-22.9", "ps":"1017.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47003", "stn_tp":"S", "x":"719", "y":"396", "wd":"320", "ws":"7.0", "ta":"-7.2", "td":"-16.6", "ps":"1017.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"30710", "stn_tp":"S", "x":"508", "y":"246", "wd":"0", "ws":"0.0", "ta":"-11.9", "td":"-17.5", "ps":"1042.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"23552", "stn_tp":"S", "x":"413", "y":"20", "wd":"90", "ws":"1.0", "ta":"-7.9", "td":"-8.6", "ps":"1013.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"24125", "stn_tp":"S", "x":"607", "y":"46", "wd":"300", "ws":"2.0", "ta":"-33.0", "td":"-36.7", "ps":"1031.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"24266", "stn_tp":"S", "x":"717", "y":"63", "wd":"0", "ws":"0.0", "ta":"-41.5", "td":"-43.7", "ps":"1032.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"24738", "stn_tp":"S", "x":"625", "y":"137", "wd":"0", "ws":"0.0", "ta":"-28.5", "td":"-31.0", "ps":"1032.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"24768", "stn_tp":"S", "x":"719", "y":"139", "wd":"300", "ws":"1.0", "ta":"-32.5", "td":"-35.5", "ps":"1029.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"24908", "stn_tp":"S", "x":"523", "y":"141", "wd":"200", "ws":"1.0", "ta":"-11.1", "td":"-12.9", "ps":"1030.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"25400", "stn_tp":"S", "x":"816", "y":"69", "wd":"310", "ws":"1.0", "ta":"-32.5", "td":"-36.9", "ps":"1029.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"25551", "stn_tp":"S", "x":"925", "y":"35", "wd":"360", "ws":"1.0", "ta":"-19.0", "td":"-23.1", "ps":"1017.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"25913", "stn_tp":"S", "x":"841", "y":"149", "wd":"50", "ws":"7.0", "ta":"-10.1", "td":"-22.5", "ps":"1005.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"28076", "stn_tp":"S", "x":"327", "y":"44", "wd":"230", "ws":"1.0", "ta":"-2.7", "td":"-4.5", "ps":"1017.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"31416", "stn_tp":"S", "x":"760", "y":"262", "wd":"320", "ws":"1.0", "ta":"-16.4", "td":"-19.6", "ps":"1014.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"32053", "stn_tp":"S", "x":"813", "y":"259", "wd":"300", "ws":"4.0", "ta":"-12.3", "td":"-15.0", "ps":"1003.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"32389", "stn_tp":"S", "x":"922", "y":"162", "wd":"240", "ws":"5.0", "ta":"-5.8", "td":"-8.3", "ps":"992.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"32594", "stn_tp":"S", "x":"916", "y":"233", "wd":"100", "ws":"3.0", "ta":"-4.4", "td":"-5.0", "ps":"986.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"35217", "stn_tp":"S", "x":"153", "y":"37", "wd":"140", "ws":"7.0", "ta":"-2.5", "td":"-6.2", "ps":"1008.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"35849", "stn_tp":"S", "x":"163", "y":"136", "wd":"110", "ws":"4.0", "ta":"-2.2", "td":"-6.1", "ps":"1020.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"36096", "stn_tp":"S", "x":"431", "y":"227", "wd":"80", "ws":"1.0", "ta":"-23.7", "td":"-27.7", "ps":"1057.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"36428", "stn_tp":"S", "x":"344", "y":"220", "wd":"260", "ws":"1.0", "ta":"-17.8", "td":"-24.1", "ps":"1044.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"38222", "stn_tp":"S", "x":"226", "y":"226", "wd":"120", "ws":"1.0", "ta":"6.1", "td":"1.9", "ps":"1024.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"38507", "stn_tp":"S", "x":"52", "y":"119", "wd":"160", "ws":"6.0", "ta":"15.3", "td":"-2.5", "ps":"1006.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"38565", "stn_tp":"S", "x":"140", "y":"207", "wd":"0", "ws":"0.0", "ta":"14.2", "td":"4.0", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"40745", "stn_tp":"S", "x":"58", "y":"203", "wd":"20", "ws":"3.0", "ta":"16.9", "td":"-0.8", "ps":"1009.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"42101", "stn_tp":"S", "x":"145", "y":"382", "wd":"140", "ws":"0.5", "ta":"14.8", "td":"11.5", "ps":"1011.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"42328", "stn_tp":"S", "x":"66", "y":"379", "wd":"320", "ws":"1.0", "ta":"24.6", "td":"-1.1", "ps":"1006.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"42571", "stn_tp":"S", "x":"145", "y":"475", "wd":"320", "ws":"2.0", "ta":"22.4", "td":"-2.8", "ps":"1007.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"43014", "stn_tp":"S", "x":"51", "y":"490", "wd":"0", "ws":"1.0", "ta":"25.8", "td":"11.2", "ps":"1007.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"43150", "stn_tp":"S", "x":"123", "y":"574", "wd":"230", "ws":"4.0", "ta":"28.0", "td":"21.1", "ps":"1008.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"43213", "stn_tp":"S", "x":"48", "y":"558", "wd":"320", "ws":"2.0", "ta":"31.4", "td":"9.5", "ps":"1007.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"44275", "stn_tp":"S", "x":"437", "y":"297", "wd":"0", "ws":"0.0", "ta":"-16.5", "td":"-23.4", "ps":"1049.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"44305", "stn_tp":"S", "x":"565", "y":"332", "wd":"290", "ws":"3.0", "ta":"-17.7", "td":"-21.0", "ps":"1040.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"44341", "stn_tp":"S", "x":"502", "y":"331", "wd":"360", "ws":"7.0", "ta":"-9.7", "td":"-18.2", "ps":"1040.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"44477", "stn_tp":"S", "x":"231", "y":"487", "wd":"0", "ws":"0.0", "ta":"8.6", "td":"7.9", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47401", "stn_tp":"S", "x":"818", "y":"343", "wd":"300", "ws":"2.0", "ta":"-5.2", "td":"-11.5", "ps":"1005.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47590", "stn_tp":"S", "x":"828", "y":"435", "wd":"320", "ws":"4.0", "ta":"1.1", "td":"-5.8", "ps":"1011.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47740", "stn_tp":"S", "x":"754", "y":"472", "wd":"280", "ws":"6.0", "ta":"3.5", "td":"-5.4", "ps":"1016.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47837", "stn_tp":"S", "x":"734", "y":"545", "wd":"310", "ws":"11.5", "ta":"10.1", "td":"2.5", "ps":"1019.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47991", "stn_tp":"S", "x":"1019", "y":"573", "wd":"250", "ws":"3.0", "ta":"20.9", "td":"15.0", "ps":"1015.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48094", "stn_tp":"S", "x":"258", "y":"655", "wd":"40", "ws":"1.0", "ta":"32.5", "td":"14.0", "ps":"1009.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48112", "stn_tp":"S", "x":"273", "y":"768", "wd":"40", "ws":"1.5", "ta":"34.0", "td":"25.7", "ps":"1007.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48432", "stn_tp":"S", "x":"364", "y":"721", "wd":"10", "ws":"2.0", "ta":"30.0", "td":"19.5", "ps":"1010.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48826", "stn_tp":"S", "x":"426", "y":"651", "wd":"320", "ws":"1.0", "ta":"17.6", "td":"10.0", "ps":"1020.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48855", "stn_tp":"S", "x":"434", "y":"721", "wd":"0", "ws":"0.0", "ta":"23.6", "td":"17.8", "ps":"1016.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48887", "stn_tp":"S", "x":"414", "y":"794", "wd":"90", "ws":"8.0", "ta":"29.2", "td":"23.2", "ps":"1008.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"42314", "stn_tp":"S", "x":"317", "y":"520", "wd":"110", "ws":"3.0", "ta":"23.4", "td":"12.2", "ps":"1012.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47655", "stn_tp":"S", "x":"808", "y":"486", "wd":"280", "ws":"9.0", "ta":"7.1", "td":"-2.3", "ps":"1011.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48300", "stn_tp":"S", "x":"311", "y":"637", "wd":"0", "ws":"0.0", "ta":"31.8", "td":"14.0", "ps":"1008.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"31088", "stn_tp":"S", "x":"792", "y":"164", "wd":"350", "ws":"3.0", "ta":"-11.2", "td":"-18.6", "ps":"1007.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"42027", "stn_tp":"S", "x":"159", "y":"332", "wd":"50", "ws":"0.5", "ta":"8.4", "td":"0.5", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"43279", "stn_tp":"S", "x":"50", "y":"608", "wd":"180", "ws":"2.0", "ta":"30.6", "td":"22.4", "ps":"1008.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48450", "stn_tp":"S", "x":"306", "y":"716", "wd":"80", "ws":"1.0", "ta":"33.0", "td":"20.8", "ps":"1008.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"42809", "stn_tp":"S", "x":"216", "y":"545", "wd":"70", "ws":"1.0", "ta":"17.8", "td":"17.5", "ps":"1009.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"45011", "stn_tp":"S", "x":"518", "y":"650", "wd":"10", "ws":"5.5", "ta":"14.9", "td":"7.7", "ps":"1020.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"23179", "stn_tp":"S", "x":"483", "y":"10", "wd":"340", "ws":"3.0", "ta":"-23.5", "td":"-26.0", "ps":"1023.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"23678", "stn_tp":"S", "x":"453", "y":"72", "wd":"150", "ws":"2.0", "ta":"-8.6", "td":"-10.1", "ps":"1023.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"23867", "stn_tp":"S", "x":"397", "y":"71", "wd":"190", "ws":"3.0", "ta":"-6.0", "td":"-8.4", "ps":"1017.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"24143", "stn_tp":"S", "x":"667", "y":"48", "wd":"170", "ws":"2.0", "ta":"-30.5", "td":"-34.1", "ps":"1027.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"24507", "stn_tp":"S", "x":"527", "y":"86", "wd":"0", "ws":"0.0", "ta":"-34.0", "td":"-36.2", "ps":"1035.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"25017", "stn_tp":"S", "x":"819", "y":"17", "wd":"0", "ws":"0.0", "ta":"-35.2", "td":"-36.2", "ps":"1029.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"25138", "stn_tp":"S", "x":"871", "y":"10", "wd":"140", "ws":"1.0", "ta":"-32.7", "td":"-36.4", "ps":"1026.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"25627", "stn_tp":"S", "x":"870", "y":"84", "wd":"20", "ws":"5.0", "ta":"-11.4", "td":"-25.7", "ps":"1015.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"25956", "stn_tp":"S", "x":"951", "y":"86", "wd":"70", "ws":"4.0", "ta":"-8.1", "td":"-12.7", "ps":"998.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"28612", "stn_tp":"S", "x":"208", "y":"0", "wd":"150", "ws":"3.0", "ta":"-1.3", "td":"-1.9", "ps":"1011.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"28666", "stn_tp":"S", "x":"279", "y":"78", "wd":"200", "ws":"7.0", "ta":"-5.6", "td":"-9.9", "ps":"1024.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"29068", "stn_tp":"S", "x":"448", "y":"124", "wd":"150", "ws":"2.0", "ta":"-7.7", "td":"-9.9", "ps":"1032.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"29814", "stn_tp":"S", "x":"330", "y":"143", "wd":"180", "ws":"2.0", "ta":"-12.3", "td":"-17.0", "ps":"1037.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"30198", "stn_tp":"S", "x":"661", "y":"193", "wd":"0", "ws":"0.0", "ta":"-25.1", "td":"-27.6", "ps":"1034.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"30252", "stn_tp":"S", "x":"593", "y":"191", "wd":"0", "ws":"0.0", "ta":"-24.5", "td":"-27.0", "ps":"1040.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"30323", "stn_tp":"S", "x":"534", "y":"192", "wd":"0", "ws":"0.0", "ta":"-12.4", "td":"-14.5", "ps":"1037.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"31123", "stn_tp":"S", "x":"711", "y":"197", "wd":"0", "ws":"0.0", "ta":"-21.4", "td":"-22.6", "ps":"1028.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"35085", "stn_tp":"S", "x":"272", "y":"128", "wd":"150", "ws":"4.0", "ta":"-9.6", "td":"-15.3", "ps":"1034.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"35532", "stn_tp":"S", "x":"168", "y":"88", "wd":"110", "ws":"12.0", "ta":"-11.2", "td":"-15.9", "ps":"1019.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"35662", "stn_tp":"S", "x":"211", "y":"145", "wd":"70", "ws":"5.0", "ta":"-12.1", "td":"-14.1", "ps":"1032.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"36785", "stn_tp":"S", "x":"281", "y":"239", "wd":"250", "ws":"1.0", "ta":"-5.6", "td":"-10.0", "ps":"1032.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"38001", "stn_tp":"S", "x":"82", "y":"64", "wd":"290", "ws":"1.0", "ta":"3.9", "td":"2.4", "ps":"1004.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"38392", "stn_tp":"S", "x":"111", "y":"156", "wd":"140", "ws":"9.0", "ta":"10.5", "td":"1.5", "ps":"1011.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"38744", "stn_tp":"S", "x":"176", "y":"260", "wd":"60", "ws":"1.0", "ta":"-5.4", "td":"-14.7", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"40789", "stn_tp":"S", "x":"2", "y":"187", "wd":"0", "ws":"0.0", "ta":"18.0", "td":"-5.3", "ps":"1012.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"40829", "stn_tp":"S", "x":"23", "y":"264", "wd":"60", "ws":"3.0", "ta":"18.1", "td":"-4.6", "ps":"1016.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"42647", "stn_tp":"S", "x":"50", "y":"433", "wd":"250", "ws":"3.0", "ta":"28.6", "td":"2.3", "ps":"1010.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"43333", "stn_tp":"S", "x":"202", "y":"712", "wd":"70", "ws":"2.0", "ta":"28.8", "td":"22.6", "ps":"1008.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"43413", "stn_tp":"S", "x":"14", "y":"657", "wd":"30", "ws":"0.5", "ta":"29.4", "td":"20.9", "ps":"1008.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"44265", "stn_tp":"S", "x":"380", "y":"284", "wd":"0", "ws":"0.0", "ta":"-8.5", "td":"-18.4", "ps":"1042.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"44313", "stn_tp":"S", "x":"613", "y":"326", "wd":"270", "ws":"3.0", "ta":"-18.1", "td":"-24.2", "ps":"1034.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47945", "stn_tp":"S", "x":"741", "y":"610", "wd":"20", "ws":"7.0", "ta":"17.6", "td":"14.5", "ps":"1016.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"47971", "stn_tp":"S", "x":"870", "y":"576", "wd":"300", "ws":"1.5", "ta":"19.3", "td":"17.8", "ps":"1010.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48019", "stn_tp":"S", "x":"326", "y":"570", "wd":"320", "ws":"2.0", "ta":"27.0", "td":"13.3", "ps":"1010.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48030", "stn_tp":"S", "x":"276", "y":"573", "wd":"220", "ws":"1.0", "ta":"15.4", "td":"11.1", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48917", "stn_tp":"S", "x":"351", "y":"789", "wd":"90", "ws":"2.0", "ta":"32.0", "td":"22.7", "ps":"1009.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"48921", "stn_tp":"S", "x":"370", "y":"623", "wd":"90", "ws":"4.0", "ta":"16.0", "td":"14.2", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"51716", "stn_tp":"S", "x":"234", "y":"294", "wd":"93", "ws":"2.8", "ta":"2.6", "td":"-12.1", "ps":"1030.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"52652", "stn_tp":"S", "x":"423", "y":"397", "wd":"9", "ws":"4.4", "ta":"0.6", "td":"-21.0", "ps":"1032.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"52713", "stn_tp":"S", "x":"371", "y":"395", "wd":"268", "ws":"1.6", "ta":"-4.7", "td":"-32.8", "ps":"1021.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"53513", "stn_tp":"S", "x":"497", "y":"396", "wd":"73", "ws":"1.8", "ta":"-2.7", "td":"-20.5", "ps":"1039.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"54337", "stn_tp":"S", "x":"630", "y":"411", "wd":"320", "ws":"2.6", "ta":"-5.3", "td":"-21.4", "ps":"1029.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"54511", "stn_tp":"S", "x":"581", "y":"422", "wd":"308", "ws":"3.8", "ta":"0.5", "td":"-21.1", "ps":"1031.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"54909", "stn_tp":"S", "x":"565", "y":"483", "wd":"18", "ws":"3.6", "ta":"4.8", "td":"-9.4", "ps":"1030.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"55228", "stn_tp":"S", "x":"195", "y":"382", "wd":"49", "ws":"1.5", "ta":"-8.9", "td":"-13.4", "ps":"1007.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"56144", "stn_tp":"S", "x":"375", "y":"482", "wd":"67", "ws":"1.7", "ta":"8.4", "td":"-16.0", "ps":"1004.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"56182", "stn_tp":"S", "x":"432", "y":"487", "wd":"196", "ws":"4.0", "ta":"7.4", "td":"-11.9", "ps":"1011.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"57655", "stn_tp":"S", "x":"495", "y":"559", "wd":"187", "ws":"1.1", "ta":"11.4", "td":"-0.1", "ps":"1027.8", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"57707", "stn_tp":"S", "x":"431", "y":"561", "wd":"175", "ws":"0.4", "ta":"2.7", "td":"-1.3", "ps":"1026.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"58265", "stn_tp":"S", "x":"628", "y":"528", "wd":"42", "ws":"2.6", "ta":"5.4", "td":"-3.2", "ps":"1028.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"58606", "stn_tp":"S", "x":"559", "y":"568", "wd":"1", "ws":"1.2", "ta":"7.3", "td":"0.3", "ps":"1028.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"58968", "stn_tp":"S", "x":"622", "y":"622", "wd":"90", "ws":"4.0", "ta":"14.5", "td":"12.2", "ps":"1022.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"59981", "stn_tp":"S", "x":"490", "y":"721", "wd":"28", "ws":"5.1", "ta":"23.4", "td":"21.1", "ps":"1015.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"51656", "stn_tp":"S", "x":"307", "y":"310", "wd":"220", "ws":"1.9", "ta":"2.4", "td":"-14.7", "ps":"1032.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"55299", "stn_tp":"S", "x":"306", "y":"457", "wd":"156", "ws":"5.9", "ta":"-5.5", "td":"-16.4", "ps":"1010.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"57046", "stn_tp":"S", "x":"507", "y":"481", "wd":"245", "ws":"2.4", "ta":"-5.5", "td":"-11.6", "ps":"1032.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"54857", "stn_tp":"S", "x":"618", "y":"475", "wd":"345", "ws":"6.2", "ta":"-0.2", "td":"-13.5", "ps":"1030.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"50756", "stn_tp":"S", "x":"685", "y":"331", "wd":"260", "ws":"1.6", "ta":"-20.5", "td":"-25.2", "ps":"1023.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"DIGX2", "stn_tp":"H", "x":"508", "y":"773", "wd":"30", "ws":"15.5", "ta":"26.2", "td":"23.0", "ps":"1010.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"7JRT", "stn_tp":"H", "x":"742", "y":"717", "wd":"50", "ws":"5.0", "ta":"25.0", "td":"19.1", "ps":"1013.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"7KGK", "stn_tp":"H", "x":"903", "y":"801", "wd":"40", "ws":"10.0", "ta":"27.0", "td":"25.7", "ps":"1009.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"46070", "stn_tp":"H", "x":"1022", "y":"124", "wd":"140", "ws":"7.0", "ta":"-12.6", "td":"-25.4", "ps":"978.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"EUMDE37", "stn_tp":"H", "x":"146", "y":"779", "wd":"20", "ws":"5.4", "ta":"26.0", "td":"23.2", "ps":"1008.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101528", "stn_tp":"B", "x":"635", "y":"776", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1011.9", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101635", "stn_tp":"B", "x":"1110", "y":"388", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1004.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101663", "stn_tp":"B", "x":"1017", "y":"387", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1005.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101687", "stn_tp":"B", "x":"1127", "y":"210", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"987.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101688", "stn_tp":"B", "x":"1120", "y":"270", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"991.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101803", "stn_tp":"B", "x":"983", "y":"318", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"997.0", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101815", "stn_tp":"B", "x":"906", "y":"375", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1005.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101816", "stn_tp":"B", "x":"915", "y":"322", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"997.4", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101826", "stn_tp":"B", "x":"1135", "y":"455", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1013.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101827", "stn_tp":"B", "x":"1080", "y":"460", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1010.7", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101830", "stn_tp":"B", "x":"994", "y":"240", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"977.1", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2101831", "stn_tp":"B", "x":"902", "y":"436", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1010.2", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2102610", "stn_tp":"B", "x":"820", "y":"594", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1014.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2201596", "stn_tp":"B", "x":"652", "y":"695", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1014.6", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"5102751", "stn_tp":"B", "x":"1031", "y":"715", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1011.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"5102807", "stn_tp":"B", "x":"912", "y":"725", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1011.5", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"5201692", "stn_tp":"B", "x":"948", "y":"606", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1014.3", "pm10":"0", "wh":"-99.0"},
+    {"stn_id":"2301617", "stn_tp":"B", "x":"55", "y":"795", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1008.7", "pm10":"0", "wh":"-99.0"}
+  ],
+  "img": "./gts_SFC_jun_202202040900_area=EA_CHT_layer=MGSE_size=1150_pnts=1_fontsize=1.00_zoomx=0000000_zoomy=0000000_border=1_wpf=1_amdar=1_colorwind=1_sat=rgb_daynight.png"
+};
+
+      img.setUrl(json.img);
+img.on('load', function() {
+     e = img;
+
+     var paneOffset = getComputedStyle(e.getElement().parentNode.parentNode).transform.match(/matrix.*\((.+)\)/)[1].split(', ');
+     var paneX = paneOffset[4];
+     var paneY = paneOffset[5];
+
+     var offsetX = parseFloat(paneX) + parseFloat(e._image._leaflet_pos.x);
+     var offsetY = parseFloat(paneY) + parseFloat(e._image._leaflet_pos.y);
+
+     var offsetRateX = parseFloat(e._image.offsetWidth)/parseFloat(e._image.naturalWidth);
+     var offsetRateY = parseFloat(e._image.offsetHeight)/parseFloat(e._image.naturalHeight);
+
+
+        var item = document.getElementById("tooltip");
+        while (item.hasChildNodes()) {
+          item.removeChild(item.childNodes[0]);
+        }
+
+      for (var i=0; i<json.data.length; i++) {
+        var li = document.createElement("li");
+        var d_li = "<a class=pop href=\"javascript:gts_stn_view('" + json.data[i].stn_tp + "', '" + json.data[i].stn_id + "');\"";
+        d_li += " style=\"z-index:500; width:10px; height:10px; top:" + parseFloat(parseFloat(json.data[i].y)*offsetRateY + 4) + "px; left:" + parseFloat(parseFloat(json.data[i].x)*offsetRateX + 4) + "px;\">";
+        d_li += "<span><b>";
+        if (json.data[i].stn_tp == "DK") var tp = "A";
+        else var tp = json.data[i].stn_tp;
+        d_li += "(" + json.data[i].stn_id + ")</b>";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ps > 0) d_li += "<br>해면기압: " + json.data[i].ps + "hPa";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ta > -90) d_li += "<br>기온: " + json.data[i].ta + "℃";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].td > -90) d_li += "<br>노점온도: " + json.data[i].td + "℃";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ws >= 0)  d_li += "<br>바람: " + json.data[i].wd + "º/" + json.data[i].ws + "m/s";
+        if (json.data[i].pm10 > 0) d_li += "<br>PM10: " + json.data[i].pm10 + "㎍/㎥";
+        if (json.data[i].stn_tp == "K" && json.data[i].wh > -90)  d_li += "<br>유의파고: " + json.data[i].wh + "m";
+        d_li += "</span></a>"; 
+        li.innerHTML = d_li;
+        document.getElementById("tooltip").appendChild(li);
+      }
+
+  var pop = document.getElementById("tooltip").querySelectorAll('.pop');
+  console.log(pop);
+  for (var i=0; i<pop.length; i++) {
+    pop[i].style.transform = "translate(" + parseInt(offsetX) + "px, " + parseInt(offsetY) + "px)";
+  }
+        });
+}
+
+function fnGeoJson() {
+ var url = "https://raw.githubusercontent.com/hunter3789/geojson/b1a289dfc2186eb3b7a0d88a8e1211ab601d9d6d/countries.geojson";
+ var xhr = new XMLHttpRequest();
+  xhr.open("GET", url, true);
+  xhr.timeout = 60000;
+  xhr.overrideMimeType("application/x-www-form-urlencoded; charset=euc-kr");
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState != 4 || xhr.status != 200) return;
+    else  {
+      var json = JSON.parse(xhr.responseText);
+      console.log(json);
+      L.geoJSON(json, {style: {color: "black", fillColor: "#ffffe5", weight: 1, fillOpacity: 0}, pane: "geojson"}).addTo(map);
+    }
+  };
+  xhr.send();
+}
+
+// 툴팁 위치 조정
+function fnSetPosition()
+{/*
+  if (ani == 0) var img_frame = 1;
+  else var img_frame = document.getElementById("ani_frame").value;
+  var img = document.getElementById("img" + img_frame);
+  var top = img.getBoundingClientRect().top;
+  var left = img.getBoundingClientRect().left;
+
+  var pop = document.getElementById("gts_body").querySelectorAll('.pop');
+  console.log(pop);
+  for (var i=0; i<pop.length; i++) {
+    pop[i].style.transform = "translate(" + parseInt(left) + "px, " + parseInt(top) + "px)";
+  }
+*/
+}
+  </script>
+</body>
+
+</html>
