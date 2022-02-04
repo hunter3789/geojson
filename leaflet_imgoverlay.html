@@ -2,6 +2,7 @@
 <html>
 
 <head>
+  <meta http-equiv="Content-Type" content="text/html; charset=euc-kr" />	
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet-src.js"></script>
   <script type="text/javascript" src="./proj4.js"></script>
@@ -55,7 +56,7 @@ img {image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;}
   </style>
 </head>
 
-<body onkeydown='doKey(event,0);'>
+<body style="overflow:hidden;">
   <div id="map" style="border:1px solid black;"></div>
   <ul id='tooltip' class='map' style='z-index:500;'></ul>
 
@@ -96,11 +97,11 @@ var lcc_attrs = {
 
     L.graticule({ interval:5, style:{dashArray:4, color:'#333', weight:1}, pmIgnore:true, snapIgnore:true}).addTo(map);
 
-    // pane Ãß°¡
+    // pane ì¶”ê°€
     var mapPaneName1 = "geojson";
     var mapPaneName2 = "image";
 
-    // pane layer »ı¼º
+    // pane layer ìƒì„±
     map.createPane(mapPaneName1);
     map.createPane(mapPaneName2);
 
@@ -108,7 +109,7 @@ var lcc_attrs = {
     map.getPane(mapPaneName1).style.zIndex = 0;
     map.getPane(mapPaneName2).style.zIndex = 100;
 
-    // pane layer ¸¶¿ì½º ¹× Å¬¸¯ ÀÌº¥Æ®
+    // pane layer ë§ˆìš°ìŠ¤ ë° í´ë¦­ ì´ë²¤íŠ¸
     map.getPane(mapPaneName1).style.pointerEvents = 'none';
     map.getPane(mapPaneName2).style.pointerEvents = 'none';
 
@@ -195,7 +196,7 @@ var lcc_attrs = {
    }
 
    function doKey(event, opt) {
-      if(event.keyCode == 39) {   // Ctrl + ¿À¸¥ È­»ìÇ¥
+      if(event.keyCode == 39) {   // Ctrl + ì˜¤ë¥¸ í™”ì‚´í‘œ
         //swapImgs();
       }
    }
@@ -226,7 +227,7 @@ function fnImgOffset() {
   // });
 }
 
-// API È£Ãâ
+// API í˜¸ì¶œ
 function fnCallApi() {
       var json =
 {
@@ -409,12 +410,12 @@ img.on('load', function() {
         if (json.data[i].stn_tp == "DK") var tp = "A";
         else var tp = json.data[i].stn_tp;
         d_li += "(" + json.data[i].stn_id + ")</b>";
-        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ps > 0) d_li += "<br>ÇØ¸é±â¾Ğ: " + json.data[i].ps + "hPa";
-        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ta > -90) d_li += "<br>±â¿Â: " + json.data[i].ta + "¡É";
-        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].td > -90) d_li += "<br>³ëÁ¡¿Âµµ: " + json.data[i].td + "¡É";
-        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ws >= 0)  d_li += "<br>¹Ù¶÷: " + json.data[i].wd + "¨¬/" + json.data[i].ws + "m/s";
-        if (json.data[i].pm10 > 0) d_li += "<br>PM10: " + json.data[i].pm10 + "§¶/§©";
-        if (json.data[i].stn_tp == "K" && json.data[i].wh > -90)  d_li += "<br>À¯ÀÇÆÄ°í: " + json.data[i].wh + "m";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ps > 0) d_li += "<br>í•´ë©´ê¸°ì••: " + json.data[i].ps + "hPa";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ta > -90) d_li += "<br>ê¸°ì˜¨: " + json.data[i].ta + "â„ƒ";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].td > -90) d_li += "<br>ë…¸ì ì˜¨ë„: " + json.data[i].td + "â„ƒ";
+        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ws >= 0)  d_li += "<br>ë°”ëŒ: " + json.data[i].wd + "Âº/" + json.data[i].ws + "m/s";
+        if (json.data[i].pm10 > 0) d_li += "<br>PM10: " + json.data[i].pm10 + "ã/ã¥";
+        if (json.data[i].stn_tp == "K" && json.data[i].wh > -90)  d_li += "<br>ìœ ì˜íŒŒê³ : " + json.data[i].wh + "m";
         d_li += "</span></a>"; 
         li.innerHTML = d_li;
         document.getElementById("tooltip").appendChild(li);
@@ -445,7 +446,7 @@ function fnGeoJson() {
   xhr.send();
 }
 
-// ÅøÆÁ À§Ä¡ Á¶Á¤
+// íˆ´íŒ ìœ„ì¹˜ ì¡°ì •
 function fnSetPosition()
 {/*
   if (ani == 0) var img_frame = 1;
