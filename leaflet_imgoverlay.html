@@ -3,7 +3,7 @@
 
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=euc-kr" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css">
   <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet-src.js"></script>
   <script type="text/javascript" src="./proj4.js"></script>
@@ -13,15 +13,14 @@
   <style>
     html,
     body {
-      height: 95%;
+      height: 100%;
+      margin: 0;	    
+      padding: 0;
     }
     
     #map {
-      width: 100%;
-      height: 95%;
+      height: 100%; width: 100vw;
     }
-
-    img {image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;}
 
     .map { 
       font-family:arial, helvetica, sans-serif;
@@ -330,7 +329,7 @@
        for (var i=0; i<json.data.length; i++) {
          var li = document.createElement("li");
          var d_li = "<a class=pop";
-         d_li += " style=\"z-index:500; width:10px; height:10px; top:" + parseFloat(parseFloat(json.data[i].y)*offsetRateY + 4) + "px; left:" + parseFloat(parseFloat(json.data[i].x)*offsetRateX + 4) + "px;\">";
+         d_li += " style=\"z-index:500; width:10px; height:10px; top:" + parseFloat(parseFloat(json.data[i].y)*offsetRateY) + "px; left:" + parseFloat(parseFloat(json.data[i].x)*offsetRateX) + "px;\">";
          d_li += "<span><b>";
          if (json.data[i].stn_tp == "DK") var tp = "A";
          else var tp = json.data[i].stn_tp;
