@@ -19,59 +19,15 @@
       height: 850px;
       #background: #e5ffff;
     }
-
-img {image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;}
-
-.map { 
-  font-family:arial, helvetica, sans-serif;
-  font-size:10pt;
-}
-.map li {
-  margin:0;
-  padding:0;
-  list-style:none;
-}
-.map li a {
-  position:absolute;
-  display:block;
-  white-space:normal;
-  text-decoration:none;
-  color:#000;
-}
-.map li a span { display:none; }
-.map li a:hover span {
-  position:relative;
-  display:block;
-  white-space:normal;
-  width:130px;
-  left:20px;
-  top:20px;
-  border:1px solid #000;
-  background:#fff;
-  padding:5px;
-  filter:alpha(opacity=80);
-  opacity:0.8;
-}
   </style>
 </head>
 
-<body onkeydown='doKey(event,0);'>
+<body>
   <div id="map"></div>
-  <ul id='tooltip' class='map' style='z-index:500;'></ul>
 
   <script>
-
-var lcc_attrs = {
+  var lcc_attrs = {
     proj4string: "+proj=eqc +lat_0=0 +lat_ts=0 +lon_0=126 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs",
-    //resolutions: [ 38.443359375, 25.62890625, 17.0859375, 11.390625, 7.59375, 5.0625, 3.375, 2.25, 1.5, 1.],
-	/*
-    resolutions: [ 176389.241667372, 88194.6208336861, 44097.310416843, 22577.8229334236,
-                      14675.5849067253, 11288.9114667118, 8466.68360003386, 5644.45573335591,
-                      3386.67344001354, 2822.22786667795, 2257.78229334236, 2116.67090000846,
-                      1411.11393333897, 705.556966669489, 352.778483334744, 176.389241667372,
-                      88.1946208336861, 44.097310416843, 22.5778229334236, 11.2889114667118,
-                      5.64445573335591, 2.82222786667795],
-*/
     resolutions: [ 31000, 15733.3333, 10488.8889,
                       6992.5296, 1655.8025, 1103.8683,
                       735.9122, 490.6081, 327.0721, 218.0481],
@@ -79,376 +35,43 @@ var lcc_attrs = {
         min: 0,
         max: 8
     }
-};
+  };
 
-    var lcc_crs = new L.Proj.CRS('EPSG:32662', lcc_attrs.proj4string,
+  var lcc_crs = new L.Proj.CRS('EPSG:32662', lcc_attrs.proj4string,
         {
             resolutions: lcc_attrs.resolutions //rss
         }
-    );
+  );
 
 
-    var bounds = [
-      [89.99999999999982, -53.998970031738146],
-      [-89.99498748779261, -54.00103759765625]
-    ];
 
-
-    var map = L.map('map', {
+  var map = L.map('map', {
         maxZoom: lcc_attrs.zoom.max, //6,
         minZoom: lcc_attrs.zoom.min, //0,
         crs: lcc_crs,
-        continuousWorld: false,
-        worldCopyJump: false,
-        maxBounds: bounds,
-        maxBoundsViscosity: 0.5
-    }).setView([90, 120], 0);
+        continuousWorld: false
+  }).setView([90, 120], 0);
 
-    L.graticule({ interval:20, style:{dashArray:4, color:'#333', weight:1}, pmIgnore:true, snapIgnore:true}).addTo(map);
+  L.graticule({ interval:20, style:{dashArray:4, color:'#333', weight:1}, pmIgnore:true, snapIgnore:true}).addTo(map);
 
-    // pane 추가
-    var mapPaneName1 = "geojson";
-    var mapPaneName2 = "image";
+  fnGeoJson();
 
-    // pane layer 생성
-    map.createPane(mapPaneName1);
-    map.createPane(mapPaneName2);
-
-    // pane layer z-inex set
-    map.getPane(mapPaneName1).style.zIndex = 0;
-    map.getPane(mapPaneName2).style.zIndex = 100;
-
-    // pane layer 마우스 및 클릭 이벤트
-    map.getPane(mapPaneName1).style.pointerEvents = 'none';
-    map.getPane(mapPaneName2).style.pointerEvents = 'none';
-
-    //fnGeoJson();
-
-    var current, next;
-    var url;
-    var url1 = 'https://c1.staticflickr.com/2/1696/26529046625_df32b8b863_c.jpg';
-    var url2 = 'https://c1.staticflickr.com/2/1469/25926137293_a2b96bf9c6_c.jpg';
-
-    url = url1;
-    var img = L.imageOverlay(url, bounds, {pane: "image"});
-    img.addTo(map);
-    img.getElement().setAttribute("id", "img");
-    fnCallApi();
-
-    map.on('zoomstart', removeImg);
-    map.on('zoomend', addImg);
-    map.on('moveend', fnImgOffset);
-    map.on('click', printLatLng);
-
-
-    function swapImgs() {
-      // Workaround for the fact that "load" event fires only the very first time, when browser has fetched the image from network.
-      // After that, browser serves from its cache and does not fire "load".
-      // But the <img> element now has the `complete` property true.
-	  /*
-      var img = L.imageOverlay(url, bounds, {interactive: true});
-      img.on('click', function(e) {console.log(e.containerPoint);});
-      next = img;
-
-      if (next.getElement() && next.getElement().complete) {
-        map.addLayer(next);
-        removeCurrent();
+  function fnGeoJson() {
+    var url = "https://raw.githubusercontent.com/hunter3789/geojson/b1a289dfc2186eb3b7a0d88a8e1211ab601d9d6d/countries.geojson";
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.timeout = 60000;
+    xhr.overrideMimeType("application/x-www-form-urlencoded; charset=euc-kr");
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState != 4 || xhr.status != 200) return;
+      else  {
+        var json = JSON.parse(xhr.responseText);
+        L.geoJSON(json, {style: {color: "black", fillColor: "#ffffe5", weight: 1, fillOpacity: 0}}).addTo(map);
       }
-      else {
-        next.once('load', function() {
-          removeCurrent();
-        });
-        map.addLayer(next);
-      }
-*/
-      if (url == url1) {
-        url = url2;
-      }
-      else {
-        url = url1;
-      }
-
-      img.setUrl(url);
-      console.log(img.getElement());
-    }
-
-    function removeCurrent() {
-      if (current != undefined) {
-        map.removeLayer(current);
-      }
-      current = next;
-
-      if (url == url1) {
-        url = url2;
-      }
-      else {
-        url = url1;
-      }
-    }
-
-   function removeImg() {
-     map.removeLayer(img);
-   }
-
-   function addImg() {
-     fnCallApi();
-     map.addLayer(img);
-   }
-
-   function printLatLng(e) {
-     console.log(e.latlng);
-   }
-
-   function doKey(event, opt) {
-      if(event.keyCode == 39) {   // Ctrl + 오른 화살표
-        //swapImgs();
-      }
-   }
-
-   function fnImgOffset() {
-     //console.log(e.target.getElement().offsetTop, e.target.getElement().offsetLeft);
-     e = img;
-     //console.log(e);
-
-     var paneOffset = getComputedStyle(e.getElement().parentNode.parentNode).transform.match(/matrix.*\((.+)\)/)[1].split(', ');
-     var paneX = paneOffset[4];
-     var paneY = paneOffset[5];
-
-     var offsetX = parseFloat(paneX) + parseFloat(e._image._leaflet_pos.x);
-     var offsetY = parseFloat(paneY) + parseFloat(e._image._leaflet_pos.y);
-
-     var offsetRate = parseFloat(e._image.offsetHeight)/parseFloat(e._image.naturalHeight);
-
-     console.log(offsetX, offsetY, offsetRate);
-
-  var pop = document.getElementById("tooltip").querySelectorAll('.pop');
-  //console.log(pop);
-  for (var i=0; i<pop.length; i++) {
-    pop[i].style.transform = "translate(" + parseInt(offsetX) + "px, " + parseInt(offsetY) + "px)";
+    };
+    xhr.send();
   }
-
-   }
-
-// API 호출
-function fnCallApi() {
-      var json =
-{
-  "data": [
-    {"stn_id":"90", "stn_tp":"A", "x":"659", "y":"186", "wd":"138", "ws":"1.4", "ta":"-5.2", "td":"-21.3", "ps":"1020.3", "pm10":"0", "wh":"-99.9"},
-    {"stn_id":"47420", "stn_tp":"S", "x":"720", "y":"168", "wd":"320", "ws":"3.5", "ta":"-4.3", "td":"-7.7", "ps":"1003.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"47927", "stn_tp":"S", "x":"647", "y":"235", "wd":"20", "ws":"7.0", "ta":"16.3", "td":"12.3", "ps":"1021.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"47991", "stn_tp":"S", "x":"751", "y":"237", "wd":"220", "ws":"4.0", "ta":"21.6", "td":"15.9", "ps":"1014.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"2044", "stn_tp":"S", "x":"268", "y":"80", "wd":"60", "ws":"2.0", "ta":"-16.8", "td":"-18.5", "ps":"991.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3091", "stn_tp":"S", "x":"187", "y":"118", "wd":"270", "ws":"7.5", "ta":"5.4", "td":"-3.8", "ps":"998.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"7630", "stn_tp":"S", "x":"199", "y":"167", "wd":"290", "ws":"4.0", "ta":"11.6", "td":"7.9", "ps":"1021.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"71805", "stn_tp":"S", "x":"1292", "y":"156", "wd":"60", "ws":"4.0", "ta":"2.7", "td":"2.6", "ps":"1021.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"87344", "stn_tp":"S", "x":"1263", "y":"438", "wd":"70", "ws":"2.0", "ta":"19.5", "td":"16.4", "ps":"1013.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"93781", "stn_tp":"S", "x":"818", "y":"482", "wd":"200", "ws":"3.5", "ta":"12.9", "td":"12.5", "ps":"1009.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"94294", "stn_tp":"S", "x":"725", "y":"394", "wd":"130", "ws":"2.0", "ta":"25.0", "td":"23.6", "ps":"1003.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"94842", "stn_tp":"S", "x":"713", "y":"465", "wd":"100", "ws":"6.5", "ta":"16.4", "td":"11.6", "ps":"1022.6", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"96995", "stn_tp":"S", "x":"576", "y":"362", "wd":"260", "ws":"1.5", "ta":"25.1", "td":"23.3", "ps":"1008.6", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"11816", "stn_tp":"S", "x":"257", "y":"151", "wd":"20", "ws":"2.0", "ta":"6.5", "td":"1.4", "ps":"1015.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"17130", "stn_tp":"S", "x":"313", "y":"180", "wd":"320", "ws":"2.5", "ta":"0.6", "td":"-7.6", "ps":"1016.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"41170", "stn_tp":"S", "x":"381", "y":"233", "wd":"100", "ws":"4.0", "ta":"21.8", "td":"13.8", "ps":"1011.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"60030", "stn_tp":"S", "x":"139", "y":"224", "wd":"160", "ws":"5.0", "ta":"21.7", "td":"10.5", "ps":"1017.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"61901", "stn_tp":"S", "x":"174", "y":"382", "wd":"110", "ws":"5.0", "ta":"22.4", "td":"17.4", "ps":"1014.6", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"94120", "stn_tp":"S", "x":"667", "y":"369", "wd":"0", "ws":"0.0", "ta":"25.8", "td":"25.1", "ps":"1007.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"94610", "stn_tp":"S", "x":"613", "y":"440", "wd":"20", "ws":"2.0", "ta":"23.4", "td":"8.3", "ps":"1008.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4231", "stn_tp":"S", "x":"11", "y":"82", "wd":"270", "ws":"5.0", "ta":"-13.0", "td":"-17.7", "ps":"986.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4360", "stn_tp":"S", "x":"59", "y":"88", "wd":"360", "ws":"3.0", "ta":"-6.9", "td":"-12.4", "ps":"997.4", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"8506", "stn_tp":"S", "x":"91", "y":"185", "wd":"50", "ws":"8.0", "ta":"15.2", "td":"-99.9", "ps":"1028.4", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"60612", "stn_tp":"S", "x":"225", "y":"245", "wd":"0", "ws":"0.0", "ta":"17.6", "td":"-7.9", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"61980", "stn_tp":"S", "x":"395", "y":"400", "wd":"110", "ws":"11.5", "ta":"27.4", "td":"24.5", "ps":"1004.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"61998", "stn_tp":"S", "x":"448", "y":"503", "wd":"270", "ws":"0.5", "ta":"8.9", "td":"7.3", "ps":"997.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"87852", "stn_tp":"S", "x":"1238", "y":"493", "wd":"0", "ws":"0.0", "ta":"14.6", "td":"3.6", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"88903", "stn_tp":"S", "x":"63", "y":"521", "wd":"280", "ws":"8.0", "ta":"3.5", "td":"-0.9", "ps":"989.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"89003", "stn_tp":"S", "x":"170", "y":"582", "wd":"90", "ws":"8.0", "ta":"-9.9", "td":"-11.3", "ps":"994.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"89022", "stn_tp":"S", "x":"102", "y":"597", "wd":"70", "ws":"9.0", "ta":"-1.2", "td":"-2.6", "ps":"988.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"89047", "stn_tp":"S", "x":"34", "y":"615", "wd":"240", "ws":"4.5", "ta":"-9.0", "td":"-11.0", "ps":"993.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"89055", "stn_tp":"S", "x":"1290", "y":"556", "wd":"200", "ws":"16.5", "ta":"0.9", "td":"1.0", "ps":"988.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"89314", "stn_tp":"S", "x":"1076", "y":"630", "wd":"0", "ws":"-1.0", "ta":"-11.4", "td":"-99.9", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"89577", "stn_tp":"S", "x":"474", "y":"615", "wd":"130", "ws":"5.0", "ta":"-40.3", "td":"-99.9", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"89648", "stn_tp":"S", "x":"721", "y":"597", "wd":"230", "ws":"5.0", "ta":"-30.4", "td":"-7.1", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"89659", "stn_tp":"S", "x":"775", "y":"590", "wd":"310", "ws":"7.5", "ta":"-31.8", "td":"-7.1", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"89815", "stn_tp":"S", "x":"594", "y":"565", "wd":"180", "ws":"0.0", "ta":"-4.3", "td":"-10.0", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"91925", "stn_tp":"S", "x":"992", "y":"360", "wd":"300", "ws":"1.5", "ta":"23.7", "td":"19.8", "ps":"1012.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"91948", "stn_tp":"S", "x":"1007", "y":"408", "wd":"340", "ws":"1.0", "ta":"22.8", "td":"20.5", "ps":"1017.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"91954", "stn_tp":"S", "x":"955", "y":"409", "wd":"120", "ws":"5.0", "ta":"25.3", "td":"21.0", "ps":"1017.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"93994", "stn_tp":"S", "x":"852", "y":"430", "wd":"170", "ws":"1.5", "ta":"22.1", "td":"20.3", "ps":"1011.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"94996", "stn_tp":"S", "x":"801", "y":"429", "wd":"340", "ws":"3.0", "ta":"23.1", "td":"21.9", "ps":"1003.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"94998", "stn_tp":"S", "x":"768", "y":"521", "wd":"270", "ws":"14.0", "ta":"4.7", "td":"1.2", "ps":"1002.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4339", "stn_tp":"S", "x":"115", "y":"70", "wd":"0", "ws":"0.0", "ta":"-7.0", "td":"-12.0", "ps":"1005.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"78925", "stn_tp":"S", "x":"1274", "y":"272", "wd":"110", "ws":"6.6", "ta":"28.6", "td":"19.8", "ps":"1016.6", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"1001", "stn_tp":"S", "x":"163", "y":"68", "wd":"4", "ws":"15.8", "ta":"-1.1", "td":"-4.1", "ps":"988.6", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4211", "stn_tp":"S", "x":"1292", "y":"62", "wd":"305", "ws":"3.4", "ta":"-10.1", "td":"-12.1", "ps":"990.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"61972", "stn_tp":"S", "x":"340", "y":"405", "wd":"180", "ws":"6.6", "ta":"29.8", "td":"23.0", "ps":"1007.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"61997", "stn_tp":"S", "x":"382", "y":"492", "wd":"240", "ws":"11.7", "ta":"9.0", "td":"7.0", "ps":"1004.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"76225", "stn_tp":"S", "x":"1112", "y":"221", "wd":"20", "ws":"3.0", "ta":"-1.4", "td":"-6.3", "ps":"1031.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"81405", "stn_tp":"S", "x":"5", "y":"307", "wd":"90", "ws":"4.7", "ta":"28.7", "td":"23.8", "ps":"1013.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"91723", "stn_tp":"S", "x":"874", "y":"358", "wd":"50", "ws":"4.1", "ta":"27.6", "td":"24.4", "ps":"1009.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"46035", "stn_tp":"H", "x":"853", "y":"119", "wd":"130", "ws":"3.0", "ta":"2.2", "td":"-99.9", "ps":"986.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"51101", "stn_tp":"H", "x":"909", "y":"236", "wd":"170", "ws":"7.0", "ta":"23.5", "td":"19.6", "ps":"1013.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"46077", "stn_tp":"H", "x":"938", "y":"115", "wd":"240", "ws":"10.0", "ta":"3.1", "td":"-0.6", "ps":"997.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"VRIZ9", "stn_tp":"H", "x":"960", "y":"222", "wd":"120", "ws":"10.0", "ta":"19.0", "td":"13.8", "ps":"1023.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"46083", "stn_tp":"H", "x":"996", "y":"114", "wd":"100", "ws":"14.0", "ta":"5.5", "td":"3.1", "ps":"984.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"46002", "stn_tp":"H", "x":"1023", "y":"170", "wd":"220", "ws":"7.0", "ta":"11.1", "td":"11.1", "ps":"1028.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"CZ9742", "stn_tp":"H", "x":"1145", "y":"142", "wd":"310", "ws":"3.5", "ta":"-26.4", "td":"-29.5", "ps":"1036.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"42361", "stn_tp":"H", "x":"1160", "y":"225", "wd":"50", "ws":"3.0", "ta":"12.3", "td":"9.6", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"CGDS", "stn_tp":"H", "x":"1195", "y":"172", "wd":"20", "ws":"2.5", "ta":"-10.3", "td":"-12.9", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"OYGC2", "stn_tp":"H", "x":"1207", "y":"292", "wd":"0", "ws":"-1.0", "ta":"31.8", "td":"25.2", "ps":"1014.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"V2QX5", "stn_tp":"H", "x":"1209", "y":"237", "wd":"0", "ws":"-1.0", "ta":"24.6", "td":"24.6", "ps":"1022.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"AMOUK77", "stn_tp":"H", "x":"1214", "y":"588", "wd":"0", "ws":"-1.0", "ta":"-1.8", "td":"-3.3", "ps":"990.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"WTSZ", "stn_tp":"H", "x":"1216", "y":"368", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1012.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"44032", "stn_tp":"H", "x":"1244", "y":"167", "wd":"10", "ws":"13.0", "ta":"-4.3", "td":"-99.9", "ps":"1016.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"KOGC", "stn_tp":"H", "x":"1298", "y":"221", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1024.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"SHIP", "stn_tp":"H", "x":"0", "y":"137", "wd":"300", "ws":"1.0", "ta":"-13.6", "td":"-18.7", "ps":"1029.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"A8JS6", "stn_tp":"H", "x":"4", "y":"189", "wd":"170", "ws":"20.0", "ta":"19.0", "td":"17.4", "ps":"1028.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"KSOQ", "stn_tp":"H", "x":"27", "y":"411", "wd":"0", "ws":"-1.0", "ta":"34.1", "td":"26.6", "ps":"1011.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"C6YT4", "stn_tp":"H", "x":"79", "y":"449", "wd":"70", "ws":"7.5", "ta":"22.0", "td":"17.2", "ps":"1025.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"VRHQ9", "stn_tp":"H", "x":"86", "y":"348", "wd":"100", "ws":"7.5", "ta":"29.0", "td":"26.2", "ps":"1012.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"WSNU", "stn_tp":"H", "x":"131", "y":"276", "wd":"40", "ws":"5.0", "ta":"28.1", "td":"17.3", "ps":"1010.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"KS1079", "stn_tp":"H", "x":"156", "y":"325", "wd":"150", "ws":"4.0", "ta":"27.2", "td":"26.6", "ps":"1011.4", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"WSNA", "stn_tp":"H", "x":"336", "y":"348", "wd":"0", "ws":"-1.0", "ta":"32.8", "td":"26.1", "ps":"1006.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"VRRB6", "stn_tp":"H", "x":"384", "y":"323", "wd":"30", "ws":"7.0", "ta":"30.0", "td":"25.8", "ps":"1016.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"WMDK", "stn_tp":"H", "x":"453", "y":"249", "wd":"0", "ws":"-1.0", "ta":"21.2", "td":"14.0", "ps":"1010.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"VTJR", "stn_tp":"H", "x":"501", "y":"335", "wd":"140", "ws":"5.0", "ta":"28.8", "td":"-6.5", "ps":"1009.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"VWTI", "stn_tp":"H", "x":"529", "y":"282", "wd":"150", "ws":"0.0", "ta":"26.7", "td":"-8.6", "ps":"1010.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"JPBN", "stn_tp":"H", "x":"689", "y":"293", "wd":"80", "ws":"7.5", "ta":"28.2", "td":"25.2", "ps":"1009.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"DBBT", "stn_tp":"H", "x":"248", "y":"422", "wd":"155", "ws":"16.7", "ta":"17.2", "td":"14.0", "ps":"1011.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"EUCDE24", "stn_tp":"H", "x":"449", "y":"321", "wd":"0", "ws":"-1.0", "ta":"28.4", "td":"24.2", "ps":"1009.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4101659", "stn_tp":"B", "x":"334", "y":"55", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1012.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"5102723", "stn_tp":"B", "x":"470", "y":"426", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1016.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"6301678", "stn_tp":"B", "x":"80", "y":"249", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1019.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"1601588", "stn_tp":"B", "x":"527", "y":"418", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1011.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"1601598", "stn_tp":"B", "x":"664", "y":"447", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1017.6", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"1401816", "stn_tp":"B", "x":"496", "y":"482", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1011.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"1501696", "stn_tp":"B", "x":"174", "y":"447", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1016.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"1601592", "stn_tp":"B", "x":"918", "y":"486", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1016.4", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"1601606", "stn_tp":"B", "x":"1123", "y":"505", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"998.4", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"1601634", "stn_tp":"B", "x":"1002", "y":"458", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1018.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"1701620", "stn_tp":"B", "x":"296", "y":"463", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1021.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"2101593", "stn_tp":"B", "x":"826", "y":"270", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1013.4", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"2101615", "stn_tp":"B", "x":"964", "y":"174", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1028.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"2101629", "stn_tp":"B", "x":"902", "y":"166", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"999.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"2101635", "stn_tp":"B", "x":"801", "y":"202", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1006.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"2101799", "stn_tp":"B", "x":"795", "y":"116", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"991.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3200303", "stn_tp":"B", "x":"1152", "y":"306", "wd":"0", "ws":"-1.0", "ta":"25.5", "td":"24.1", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3200315", "stn_tp":"B", "x":"1097", "y":"306", "wd":"0", "ws":"6.1", "ta":"24.8", "td":"22.3", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3201506", "stn_tp":"B", "x":"1120", "y":"437", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1027.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3201522", "stn_tp":"B", "x":"1096", "y":"366", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1015.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3201729", "stn_tp":"B", "x":"1065", "y":"430", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1021.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3201827", "stn_tp":"B", "x":"1176", "y":"417", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1022.8", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3201837", "stn_tp":"B", "x":"1008", "y":"309", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1011.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3201843", "stn_tp":"B", "x":"1052", "y":"248", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1020.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3401635", "stn_tp":"B", "x":"1184", "y":"523", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1006.4", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"3401641", "stn_tp":"B", "x":"783", "y":"362", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1006.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4402609", "stn_tp":"B", "x":"125", "y":"122", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1015.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4601812", "stn_tp":"B", "x":"855", "y":"30", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1015.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4601813", "stn_tp":"B", "x":"525", "y":"14", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1020.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4601814", "stn_tp":"B", "x":"792", "y":"55", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1026.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4601819", "stn_tp":"B", "x":"594", "y":"18", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1021.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4701658", "stn_tp":"B", "x":"1150", "y":"65", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"948.3", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4701735", "stn_tp":"B", "x":"1060", "y":"65", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"908.4", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4801636", "stn_tp":"B", "x":"959", "y":"46", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1001.6", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4801668", "stn_tp":"B", "x":"1181", "y":"6", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1008.6", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4801761", "stn_tp":"B", "x":"1068", "y":"4", "wd":"0", "ws":"-1.0", "ta":"-19.0", "td":"-99.9", "ps":"1009.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"4801765", "stn_tp":"B", "x":"1009", "y":"13", "wd":"0", "ws":"-1.0", "ta":"-18.5", "td":"-99.9", "ps":"1009.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"5100019", "stn_tp":"B", "x":"935", "y":"343", "wd":"92", "ws":"8.2", "ta":"26.6", "td":"23.1", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"5100303", "stn_tp":"B", "x":"881", "y":"306", "wd":"0", "ws":"-1.0", "ta":"27.9", "td":"24.7", "ps":"-1.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"5401692", "stn_tp":"B", "x":"2", "y":"518", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1011.2", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"5401697", "stn_tp":"B", "x":"1186", "y":"473", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1027.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"5401748", "stn_tp":"B", "x":"1064", "y":"487", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1008.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"5601682", "stn_tp":"B", "x":"867", "y":"515", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"998.6", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"5601696", "stn_tp":"B", "x":"531", "y":"533", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1000.1", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"6203613", "stn_tp":"B", "x":"8", "y":"242", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1018.7", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"6301573", "stn_tp":"B", "x":"100", "y":"14", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1005.9", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"6402544", "stn_tp":"B", "x":"215", "y":"63", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"986.0", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"6402619", "stn_tp":"B", "x":"151", "y":"173", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1026.5", "pm10":"0", "wh":"-99.0"},
-    {"stn_id":"6501689", "stn_tp":"B", "x":"268", "y":"32", "wd":"0", "ws":"-1.0", "ta":"-99.9", "td":"-99.9", "ps":"1014.0", "pm10":"0", "wh":"-99.0"}
-  ],
-  "img": "./gts_SFC_jun_202202041400_area=WORLD_layer=MGTA_size=1300_pnts=1_fontsize=1.00_zoomx=0000000_zoomy=0000000_border=0_wpf=1_amdar=0_colorwind=1_tmfc=2022020400_model=UM_cont=nwp_asia_SFC.png"
-};
-
-      img.setUrl(json.img);
-img.on('load', function() {
-     e = img;
-
-     var paneOffset = getComputedStyle(e.getElement().parentNode.parentNode).transform.match(/matrix.*\((.+)\)/)[1].split(', ');
-     var paneX = paneOffset[4];
-     var paneY = paneOffset[5];
-
-     var offsetX = parseFloat(paneX) + parseFloat(e._image._leaflet_pos.x);
-     var offsetY = parseFloat(paneY) + parseFloat(e._image._leaflet_pos.y);
-
-     var offsetRateX = parseFloat(e._image.offsetWidth)/parseFloat(e._image.naturalWidth);
-     var offsetRateY = parseFloat(e._image.offsetHeight)/parseFloat(e._image.naturalHeight);
-
-
-        var item = document.getElementById("tooltip");
-        while (item.hasChildNodes()) {
-          item.removeChild(item.childNodes[0]);
-        }
-
-      for (var i=0; i<json.data.length; i++) {
-        var li = document.createElement("li");
-        var d_li = "<a class=pop href=\"javascript:gts_stn_view('" + json.data[i].stn_tp + "', '" + json.data[i].stn_id + "');\"";
-        d_li += " style=\"z-index:500; width:10px; height:10px; top:" + parseFloat(parseFloat(json.data[i].y)*offsetRateY + 5) + "px; left:" + parseFloat(parseFloat(json.data[i].x)*offsetRateX + 5) + "px;\">";
-        d_li += "<span><b>";
-        if (json.data[i].stn_tp == "DK") var tp = "A";
-        else var tp = json.data[i].stn_tp;
-        d_li += "(" + json.data[i].stn_id + ")</b>";
-        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ps > 0) d_li += "<br>해면기압: " + json.data[i].ps + "hPa";
-        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ta > -90) d_li += "<br>기온: " + json.data[i].ta + "℃";
-        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].td > -90) d_li += "<br>노점온도: " + json.data[i].td + "℃";
-        if (json.data[i].stn_tp != "DC" && json.data[i].stn_tp != "DK" && json.data[i].ws >= 0)  d_li += "<br>바람: " + json.data[i].wd + "º/" + json.data[i].ws + "m/s";
-        if (json.data[i].pm10 > 0) d_li += "<br>PM10: " + json.data[i].pm10 + "㎍/㎥";
-        if (json.data[i].stn_tp == "K" && json.data[i].wh > -90)  d_li += "<br>유의파고: " + json.data[i].wh + "m";
-        d_li += "</span></a>"; 
-        li.innerHTML = d_li;
-        document.getElementById("tooltip").appendChild(li);
-      }
-
-  var pop = document.getElementById("tooltip").querySelectorAll('.pop');
-  console.log(pop);
-  for (var i=0; i<pop.length; i++) {
-    pop[i].style.transform = "translate(" + parseInt(offsetX) + "px, " + parseInt(offsetY) + "px)";
-  }
-        });
-}
-
-function fnGeoJson() {
- var url = "https://raw.githubusercontent.com/hunter3789/geojson/b1a289dfc2186eb3b7a0d88a8e1211ab601d9d6d/countries.geojson";
- var xhr = new XMLHttpRequest();
-  xhr.open("GET", url, true);
-  xhr.timeout = 60000;
-  xhr.overrideMimeType("application/x-www-form-urlencoded; charset=euc-kr");
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState != 4 || xhr.status != 200) return;
-    else  {
-      var json = JSON.parse(xhr.responseText);
-      console.log(json);
-      L.geoJSON(json, {style: {color: "black", fillColor: "#ffffe5", weight: 1, fillOpacity: 0}, pane: "geojson"}).addTo(map);
-    }
-  };
-  xhr.send();
-}
-
-// 툴팁 위치 조정
-function fnSetPosition()
-{/*
-  if (ani == 0) var img_frame = 1;
-  else var img_frame = document.getElementById("ani_frame").value;
-  var img = document.getElementById("img" + img_frame);
-  var top = img.getBoundingClientRect().top;
-  var left = img.getBoundingClientRect().left;
-
-  var pop = document.getElementById("gts_body").querySelectorAll('.pop');
-  console.log(pop);
-  for (var i=0; i<pop.length; i++) {
-    pop[i].style.transform = "translate(" + parseInt(left) + "px, " + parseInt(top) + "px)";
-  }
-*/
-}
+	  
   </script>
 </body>
 
