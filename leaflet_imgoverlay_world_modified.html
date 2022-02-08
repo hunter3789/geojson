@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet-src.js"></script>
+  <script type="text/javascript" src="./proj4.js"></script>
+  <script type="text/javascript" src="./proj4leaflet.js"></script>
+  <script type="text/javascript" src="./L.Graticule.js"></script>
+
+  <style>
+    html,
+    body {
+      height: 95%;
+    }
+    
+    #map {
+      width: 1300px;
+      height: 850px;
+      background: #e5ffff;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <script>
+  var lcc_attrs = {
+    proj4string: "+proj=eqc +lat_0=0 +lat_ts=0 +lon_0=126 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs",
+    resolutions: [ 31000, 15733.3333, 10488.8889,
+                      6992.5296, 1655.8025, 1103.8683,
+                      735.9122, 490.6081, 327.0721, 218.0481],
+    zoom: {
+        min: 0,
+        max: 8
+    }
+  };
+
+  var lcc_crs = new L.Proj.CRS('EPSG:32662', lcc_attrs.proj4string,
+        {
+            resolutions: lcc_attrs.resolutions //rss
+        }
+  );
+
+  var map = L.map('map', {
+        maxZoom: lcc_attrs.zoom.max, //6,
+        minZoom: lcc_attrs.zoom.min, //0,
+        crs: lcc_crs,
+        continuousWorld: false
+  }).setView([0, 126], 0);
+  var canvas = L.canvas();
+
+  L.graticule({ interval:20, style:{dashArray:4, color:'#333', weight:1}}).addTo(map);
+
+  fnGeoJson();
+
+  function fnGeoJson() {
+    var url = "https://raw.githubusercontent.com/hunter3789/geojson/b1a289dfc2186eb3b7a0d88a8e1211ab601d9d6d/countries.geojson";
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.timeout = 60000;
+    xhr.overrideMimeType("application/x-www-form-urlencoded; charset=euc-kr");
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState != 4 || xhr.status != 200) return;
+      else  {
+        var json = JSON.parse(xhr.responseText);
+        var lon_0 = 126;
+        var lon_split = lon_0 - 180;
+        var ok;
+
+        for (var i=0; i<json.features.length; i++) {
+          for (var j=0; j<json.features[i].geometry.coordinates.length; j++) {
+            for (var k=0; k<json.features[i].geometry.coordinates[j].length; k++) {
+              if (json.features[i].geometry.type == "MultiPolygon") {
+                ok = 0;
+                for (var l=0; l<json.features[i].geometry.coordinates[j][k].length; l++) {
+                  if (l == 0) continue;
+                  else if (json.features[i].geometry.coordinates[j][k][l-1][0] >= lon_split && json.features[i].geometry.coordinates[j][k][l][0] < lon_split) {
+                    ok = 1;
+                    break;
+                  }
+                }
+
+                if (ok == 1) {
+                  var n1 = json.features[i].geometry.coordinates[j].length;
+                  json.features[i].geometry.coordinates[j][n1] = [];
+                  for (var l=0; l<json.features[i].geometry.coordinates[j][k].length; l++) {
+                    if (json.features[i].geometry.coordinates[j][k][l][0] >= lon_split) {
+                      var n2 = json.features[i].geometry.coordinates[j][n1].length;
+                      json.features[i].geometry.coordinates[j][n1][n2] = json.features[i].geometry.coordinates[j][k][l];
+                      json.features[i].geometry.coordinates[j][k].splice(l,1);
+                      l--;
+                    }
+                  }
+                }
+
+                if (json.features[i].properties.ADMIN == "Antarctica") {
+                  for (var l=0; l<json.features[i].geometry.coordinates[j][k].length; l++) {
+                    if (json.features[i].geometry.coordinates[j][k][l][1] == -90) {
+                      json.features[i].geometry.coordinates[j][k][l][1] += 0.1;
+                    }
+                  }
+                }
+              }
+              else if (json.features[i].geometry.type == "Polygon") {
+                if (k==0) continue;
+                else if (json.features[i].geometry.coordinates[j][k-1][0] >= lon_split && json.features[i].geometry.coordinates[j][k][0] < lon_split) {
+                  ok = 1;
+                  break;
+                }
+              }
+            }
+
+
+            if (ok == 1 && json.features[i].geometry.type == "Polygon") {
+              var polygon1 = [];
+              var polygon2 = [];
+
+              for (var k=0; k<json.features[i].geometry.coordinates[j].length; k++) {
+                var n1 = polygon1.length;
+                var n2 = polygon2.length;
+                if (json.features[i].geometry.coordinates[j][k][0] >= lon_split) {
+                  polygon1[n1] = json.features[i].geometry.coordinates[j][k];
+                }
+                else {
+                  polygon2[n2] = json.features[i].geometry.coordinates[j][k];
+                }
+                json.features[i].geometry.coordinates[j].splice(k,1)
+                k--;
+              }
+
+              json.features[i].geometry.type = "MultiPolygon";
+              json.features[i].geometry.coordinates[j][0] = polygon1;
+              json.features[i].geometry.coordinates[j][1] = polygon2;
+            }
+          }
+        }
+
+        L.geoJSON(json, {style: {color: "black", fillColor: "#ffffe5", weight: 0.5, fillOpacity: 1}, renderer: canvas})
+          .bindTooltip(function (layer) {
+            return layer.feature.properties.ADMIN; //merely sets the tooltip text
+          }, {opacity: 0.5}  //then add your options
+        ).addTo(map);
+      }
+    };
+    xhr.send();
+  }
+  
+  </script>
+</body>
+
+</html>
