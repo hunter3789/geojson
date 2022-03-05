@@ -1,4 +1,4 @@
-    var url = "https://raw.githubusercontent.com/hunter3789/geojson/main/custom.geo.50m.json";
+    var url = "https://raw.githubusercontent.com/hunter3789/geojson/main/custom.geo.10m.json";
     var xhr = new XMLHttpRequest();
     xhr.open("GET", url, true);
     xhr.timeout = 60000;
