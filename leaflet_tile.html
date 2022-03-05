@@ -95,16 +95,17 @@
     document.getElementById("lon").innerText = e.latlng.lng.toFixed(2);
   });
 
-  fnGeoJson();
+  fnGeoJson(map);
 
 
-  function fnGeoJson() {
+  function fnGeoJson(map) {
     var webworker;
     if(typeof(webworker) == "undefined") {
       webworker = new Worker("https://hunter3789.github.io/geojson/MapWorker.js");
     }
-    webworker.onmessage = function(message) {	// web worker 객체와의 연결
-      fnGetBounds(message.data);
+    webworker.onmessage = function(message, map) {	// web worker 객체와의 연결
+		console.log(message, map);
+      fnGetBounds(message.data, map);
       webworker.terminate();	// web worker 객체의 실행 종료
       webworker = undefined;	// web worker 객체의 재사용
     };
