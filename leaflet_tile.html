@@ -104,7 +104,7 @@
       webworker = new Worker("https://hunter3789.github.io/geojson/MapWorker.js");
     }
     webworker.onmessage = function(message) {	// web worker 객체와의 연결
-      fnGeoTile(message.data);
+      fnGetBounds(message.data);
       webworker.terminate();	// web worker 객체의 실행 종료
       webworker = undefined;	// web worker 객체의 재사용
     };
@@ -115,7 +115,7 @@
         //fnGeoTile(json);
   }
 
-  function fnGetBounds() {
+  function fnGetBounds(json) {
         for (var i=0; i<json.features.length; i++) {
           var xmax = ymax = -999999.;
           var xmin = ymin = 999999.;
