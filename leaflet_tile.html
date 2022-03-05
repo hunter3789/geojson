@@ -104,9 +104,10 @@
       webworker = new Worker("https://hunter3789.github.io/geojson/MapWorker.js");
     }
     webworker.onmessage = function(data) {	// web worker 객체와의 연결
+		console.log(data);
       fnGeoTile(data);
-			webworker.terminate();	// web worker 객체의 실행 종료
-			webworker = undefined;	// web worker 객체의 재사용
+      webworker.terminate();	// web worker 객체의 실행 종료
+      webworker = undefined;	// web worker 객체의 재사용
     };
         //setTimeout(fnGetBounds, 1); 
 
