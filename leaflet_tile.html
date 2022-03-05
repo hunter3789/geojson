@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css">
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet-src.js"></script>
+  <script type="text/javascript" src="./proj4.js"></script>
+  <script type="text/javascript" src="./proj4leaflet.js"></script>
+  <script type="text/javascript" src="./L.Graticule.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.auto.min.js"></script> 
+
+  <style>
+    html,
+    body {
+      height: 95%;
+    }
+    
+    #map {
+      width: 1000px;
+      height: 800px;
+      background: #e5ffff;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div style="display:flex; padding:4px 0px 10px 0px;">
+    <div id="lat" style='border:1px solid gray; border-radius:3px; width:50px; height:18px; font-size:12px; padding:0px 3px 0px 3px;'></div>
+    <div style='min-width:10px;'></div>
+    <div id="lon" style='border:1px solid gray; border-radius:3px; width:50px; height:18px; font-size:12px; padding:0px 3px 0px 3px;'></div>
+  </div>
+
+  <div style="width:1000px; border:1px solid black;">
+    <div id="map"></div>
+  </div>
+
+  <script>
+  var json;
+
+  var lcc_attrs = {
+    proj4string: "+proj=lcc +lat_1=30 +lat_2=60 +lat_0=0 +lon_0=126 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs",
+    resolutions: [ 10000, 6666, 4444,
+                      2962, 1975, 1103.8683,
+                      735.9122, 490.6081, 327.0721, 218.0481],
+    zoom: {
+        min: 0,
+        max: 8
+    }
+  };
+
+  var lcc_crs = new L.Proj.CRS('EPSG:2154', lcc_attrs.proj4string,
+      {
+          resolutions: lcc_attrs.resolutions //rss
+      }
+  );
+
+  //console.log(lcc_crs.projection._proj.forward([126, 0]));
+  var map = L.map('map', {
+        maxZoom: lcc_attrs.zoom.max, //6,
+        minZoom: lcc_attrs.zoom.min, //0,
+        crs: lcc_crs,
+        continuousWorld: true,
+        attributionControl: false
+  }).setView([41, 115], 0);
+
+  // pane 추가
+  var mapPaneName1 = "geojson";
+  var mapPaneName2 = "image";
+  var mapPaneName3 = "graticule";
+
+  // pane layer 생성
+  map.createPane(mapPaneName1);
+  map.createPane(mapPaneName2);
+  map.createPane(mapPaneName3);
+
+  // pane layer z-inex set
+  map.getPane(mapPaneName1).style.zIndex = 0;
+  map.getPane(mapPaneName2).style.zIndex = 100;
+  map.getPane(mapPaneName3).style.zIndex = 200;
+
+  // pane layer 마우스 및 클릭 이벤트
+  map.getPane(mapPaneName1).style.pointerEvents = 'none';
+  map.getPane(mapPaneName2).style.pointerEvents = 'none';
+  map.getPane(mapPaneName3).style.pointerEvents = 'none';
+
+  var canvas  = L.canvas({pane: "geojson", padding: 1.5});
+  var canvas2 = L.canvas({pane: "graticule", padding: 1.5});
+
+  L.graticule({ interval:20, style:{dashArray:'4,4', color:'#333', weight:1}, renderer: canvas2 }).addTo(map);
+
+  map.on('mousemove', function(e) {
+    document.getElementById("lat").innerText = e.latlng.lat.toFixed(2);
+    document.getElementById("lon").innerText = e.latlng.lng.toFixed(2);
+  });
+
+  fnGeoJson();
+
+
+  function fnGeoJson() {
+    var webworker;
+    if(typeof(webworker) == "undefined") {
+      webworker = new Worker("https://hunter3789.github.io/geojson/MapWorker.js");
+    }
+    webworker.onmessage = function(data) {	// web worker 객체와의 연결
+      fnGeoTile(data);
+			webworker.terminate();	// web worker 객체의 실행 종료
+			webworker = undefined;	// web worker 객체의 재사용
+    };
+        //setTimeout(fnGetBounds, 1); 
+
+        //fnGetBounds();
+        //L.geoJson(json).addTo(map);
+        //fnGeoTile(json);
+  }
+
+  function fnGetBounds() {
+        for (var i=0; i<json.features.length; i++) {
+          var xmax = ymax = -999999.;
+          var xmin = ymin = 999999.;
+
+          if (json.features[i].geometry.type == "MultiPolygon") {
+            for (var j=0; j<json.features[i].geometry.coordinates.length; j++) {
+              for (var k=0; k<json.features[i].geometry.coordinates[j].length; k++) {
+                for (var l=0; l<json.features[i].geometry.coordinates[j][k].length; l++) {
+
+                  var point = map.project(L.latLng([json.features[i].geometry.coordinates[j][k][l][1], json.features[i].geometry.coordinates[j][k][l][0]]), 0);
+
+                  if (xmax <= point.x) {
+                    xmax = point.x;
+                  }
+
+                  if (xmin >= point.x) {
+                    xmin = point.x;
+                  }
+
+                  if (ymax <= point.y) {
+                    ymax = point.y;
+                  }
+
+                  if (ymin >= point.y) {
+                    ymin = point.y;
+                  }
+
+                }
+              }
+            }
+
+            json.features[i].properties.xmax = xmax;
+            json.features[i].properties.xmin = xmin;
+            json.features[i].properties.ymax = ymax;
+            json.features[i].properties.ymin = ymin;
+            //console.log(json.features[i].properties.admin, json.features[i].properties.bounds);
+          }
+          else if (json.features[i].geometry.type == "Polygon") {
+            for (var j=0; j<json.features[i].geometry.coordinates.length; j++) {
+              for (var k=0; k<json.features[i].geometry.coordinates[j].length; k++) {
+                  var point = map.project(L.latLng([json.features[i].geometry.coordinates[j][k][1], json.features[i].geometry.coordinates[j][k][0]]), 0);
+
+                  if (xmax <= point.x) {
+                    xmax = point.x;
+                  }
+
+                  if (xmin >= point.x) {
+                    xmin = point.x;
+                  }
+
+                  if (ymax <= point.y) {
+                    ymax = point.y;
+                  }
+
+                  if (ymin >= point.y) {
+                    ymin = point.y;
+                  }
+              }
+            }
+
+            json.features[i].properties.xmax = xmax;
+            json.features[i].properties.xmin = xmin;
+            json.features[i].properties.ymax = ymax;
+            json.features[i].properties.ymin = ymin;
+            //console.log(json.features[i].properties.admin, json.features[i].properties.bounds);
+          }
+        }
+
+        fnGeoTile(json);
+  }
+
+  function fnGeoTile(data) {
+    var tiles = new L.GridLayer({tileSize:512});
+    tiles.createTile = function(coords) {
+      var tile = L.DomUtil.create('canvas', 'leaflet-tile');
+      var ctx = tile.getContext('2d');
+      var size = this.getTileSize()
+      tile.width = size.x
+      tile.height = size.y
+  
+      // calculate projection coordinates of top left tile pixel
+      var nwPoint = coords.scaleBy(size)
+
+      ctx.fillStyle = 'white';
+      //ctx.fillRect(0, 0, size.x, 50);
+      ctx.fillStyle = 'black';
+      //ctx.fillText('x: ' + coords.x + ', y: ' + coords.y + ', zoom: ' + coords.z, 20, 20);
+
+
+      for (var i=0; i<data.features.length; i++) {
+/*
+        var point = [];
+        point[0] = map.project(L.latLng([data.features[i].properties.ymin, data.features[i].properties.xmin]), coords.z);
+        point[1] = map.project(L.latLng([data.features[i].properties.ymin, data.features[i].properties.xmax]), coords.z);
+        point[2] = map.project(L.latLng([data.features[i].properties.ymax, data.features[i].properties.xmin]), coords.z);
+        point[3] = map.project(L.latLng([data.features[i].properties.ymax, data.features[i].properties.xmax]), coords.z);
+
+        var xmin = Math.min(point[0].x, point[1].x, point[2].x, point[3].x);
+        var xmax = Math.max(point[0].x, point[1].x, point[2].x, point[3].x);
+
+        var ymin = Math.min(point[0].y, point[1].y, point[2].y, point[3].y);
+        var ymax = Math.max(point[0].y, point[1].y, point[2].y, point[3].y);      
+*/
+
+        var point = map.unproject(L.point([data.features[i].properties.xmin, data.features[i].properties.ymin]), 0);
+        var point = map.project(L.latLng([point.lat, point.lng]), coords.z);
+        var xmin = point.x;
+        var ymin = point.y;
+
+        var point = map.unproject(L.point([data.features[i].properties.xmax, data.features[i].properties.ymax]), 0);
+        var point = map.project(L.latLng([point.lat, point.lng]), coords.z);
+        var xmax = point.x;
+        var ymax = point.y;
+
+        if (xmax < nwPoint.x || xmin > nwPoint.x + tile.width || ymax < nwPoint.y || ymin > nwPoint.y + tile.height) {
+        //if (xmax < nwPoint.x - tile.width || xmin > nwPoint.x + tile.width*2 || ymax < nwPoint.y - tile.height || ymin > nwPoint.y + tile.height*2) {
+          continue;
+        }
+        //else {
+          //console.log(data.features[i].properties.admin, [point, point2], nwPoint);
+          drawTile(tile, ctx, coords, i, nwPoint);
+        //}
+/*
+          if (data.features[i].properties.bounds[0][1] < xmin || data.features[i].properties.bounds[0][0] > xmax || data.features[i].properties.bounds[1][1] < ymin || data.features[i].properties.bounds[1][0] > ymax) {
+            continue;
+          }
+          else {
+            console.log(bounds, data.features[i].properties.admin, data.features[i].properties.bounds);
+          }
+*/
+      }
+
+      ctx.lineWidth = 0.2;
+      ctx.strokeStyle = 'blue';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(size.x, 0);
+      ctx.lineTo(size.x, size.y);
+      ctx.lineTo(0, size.y);
+      ctx.closePath();
+      ctx.stroke();
+
+      return tile;
+    }
+
+    tiles.addTo(map);
+
+    function drawTile(tile, ctx, coords, i, nwPoint) {
+      ctx.strokeStyle = 'red';
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      var tolerance = 10.0;
+
+      if (data.features[i].geometry.type == "MultiPolygon") {
+        for (var j=0; j<data.features[i].geometry.coordinates.length; j++) {
+          var polygon = [];
+          for (var k=0; k<data.features[i].geometry.coordinates[j].length; k++) {
+            for (var l=0; l<data.features[i].geometry.coordinates[j][k].length; l++) {
+              var point = map.project(L.latLng([data.features[i].geometry.coordinates[j][k][l][1], data.features[i].geometry.coordinates[j][k][l][0]]), coords.z);
+              polygon.push(point.x);
+              polygon.push(point.y);
+              polygon.push(0);
+              //if (l==0) {
+              //  ctx.moveTo(point.x - nwPoint.x, point.y - nwPoint.y);
+              //}
+              //else {
+              //  ctx.lineTo(point.x - nwPoint.x, point.y - nwPoint.y);
+              //}
+            }
+          }
+
+          var last = polygon.length - 3;
+          polygon[2] = 1;
+          simplify(polygon, 0, last, tolerance);
+          polygon[last + 2] = 1;
+
+          for (var n = 0; n < polygon.length; n += 3) {
+            if (n==0) {
+              ctx.moveTo(polygon[n] - nwPoint.x, polygon[n+1] - nwPoint.y);
+            }
+            else {
+              ctx.lineTo(polygon[n] - nwPoint.x, polygon[n+1] - nwPoint.y);
+            }
+          }
+        }
+      }
+      else if (data.features[i].geometry.type == "Polygon") {
+        var polygon = [];
+        for (var j=0; j<data.features[i].geometry.coordinates.length; j++) {
+          for (var k=0; k<data.features[i].geometry.coordinates[j].length; k++) {
+            var point = map.project(L.latLng([data.features[i].geometry.coordinates[j][k][1], data.features[i].geometry.coordinates[j][k][0]]), coords.z);
+            polygon.push(point.x);
+            polygon.push(point.y);
+            polygon.push(0);
+            //if (k==0) {
+            //  ctx.moveTo(point.x - nwPoint.x, point.y - nwPoint.y);
+            //}
+            //else {
+            //  ctx.lineTo(point.x - nwPoint.x, point.y - nwPoint.y);
+            //}
+          }
+
+          var last = polygon.length - 3;
+          polygon[2] = 1;
+          simplify(polygon, 0, last, tolerance);
+          polygon[last + 2] = 1;
+
+          for (var n = 0; n < polygon.length; n += 3) {
+            if (n==0) {
+              ctx.moveTo(polygon[n] - nwPoint.x, polygon[n+1] - nwPoint.y);
+            }
+            else {
+              ctx.lineTo(polygon[n] - nwPoint.x, polygon[n+1] - nwPoint.y);
+            }
+          }
+        }
+      }
+
+      ctx.closePath();
+      ctx.stroke();
+      ctx.fill();
+    }
+
+
+function simplify(coords, first, last, sqTolerance) {
+    var maxSqDist = sqTolerance;
+    var mid = (last - first) >> 1;
+    var minPosToMid = last - first;
+    var index;
+
+    var ax = coords[first];
+    var ay = coords[first + 1];
+    var bx = coords[last];
+    var by = coords[last + 1];
+
+    for (var i = first + 3; i < last; i += 3) {
+        var d = getSqSegDist(coords[i], coords[i + 1], ax, ay, bx, by);
+
+        if (d > maxSqDist) {
+            index = i;
+            maxSqDist = d;
+
+        } else if (d === maxSqDist) {
+            // a workaround to ensure we choose a pivot close to the middle of the list,
+            // reducing recursion depth, for certain degenerate inputs
+            // https://github.com/mapbox/geojson-vt/issues/104
+            var posToMid = Math.abs(i - mid);
+            if (posToMid < minPosToMid) {
+                index = i;
+                minPosToMid = posToMid;
+            }
+        }
+    }
+
+    if (maxSqDist > sqTolerance) {
+        if (index - first > 3) simplify(coords, first, index, sqTolerance);
+        coords[index + 2] = maxSqDist;
+        if (last - index > 3) simplify(coords, index, last, sqTolerance);
+    }
+}
+
+// square distance from a point to a segment
+function getSqSegDist(px, py, x, y, bx, by) {
+
+    var dx = bx - x;
+    var dy = by - y;
+
+    if (dx !== 0 || dy !== 0) {
+
+        var t = ((px - x) * dx + (py - y) * dy) / (dx * dx + dy * dy);
+
+        if (t > 1) {
+            x = bx;
+            y = by;
+
+        } else if (t > 0) {
+            x += dx * t;
+            y += dy * t;
+        }
+    }
+
+    dx = px - x;
+    dy = py - y;
+
+    return dx * dx + dy * dy;
+}
+
+  }
+
+  </script>
+</body>
+
+</html>
