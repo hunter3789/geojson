@@ -78,11 +78,11 @@
           crs: lcc_crs
       }).setView([40, 120], 0);
 
-      // pane √ﬂ∞°
+      // pane Ï∂îÍ∞Ä
       var mapPaneName1 = "geojson";
       var mapPaneName2 = "graticule";
 
-      // pane layer ª˝º∫
+      // pane layer ÏÉùÏÑ±
       map.createPane(mapPaneName1);
       map.createPane(mapPaneName2);
 
@@ -90,7 +90,7 @@
       map.getPane(mapPaneName1).style.zIndex = 0;
       map.getPane(mapPaneName2).style.zIndex = 100;
 
-      // pane layer ∏∂øÏΩ∫ π◊ ≈¨∏Ø ¿Ã∫•∆Æ
+      // pane layer ÎßàÏö∞Ïä§ Î∞è ÌÅ¥Î¶≠ Ïù¥Î≤§Ìä∏
       map.getPane(mapPaneName1).style.pointerEvents = 'none';
       map.getPane(mapPaneName2).style.pointerEvents = 'none';
 
@@ -111,13 +111,14 @@
       }
       map.options.crs = lcc_crs;
       map.fire('viewreset');
-      map.invalidateSize();
+      //map.invalidateSize();
 
       var resolution = 1/map.options.crs._scales[0];
       fnGeojsonBounds(map, geojsonData);
       geojsonVectorTile = fnGeoTile(map, "geojson", geojsonData, resolution, true, "#ffffee");
       geojsonVectorTile.addTo(map);
       map.setView([lat_0, lon_0], 0);
+      map.fire('viewreset');      
     }
   }
 
