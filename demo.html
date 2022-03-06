@@ -111,14 +111,13 @@
       }
       map.options.crs = lcc_crs;
       map.fire('viewreset');
-      //map.invalidateSize();
 
       var resolution = 1/map.options.crs._scales[0];
       fnGeojsonBounds(map, geojsonData);
       geojsonVectorTile = fnGeoTile(map, "geojson", geojsonData, resolution, true, "#ffffee");
       geojsonVectorTile.addTo(map);
-      map.setView([lat_0, lon_0], 0);
-      map.fire('viewreset');      
+      map.setView([lat_0, lon_0], 0, {animate:false});
+      map.fire('viewreset');    
     }
   }
 
