@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css">
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet-src.js"></script>
+  <script type="text/javascript" src="./proj4.js"></script>
+  <script type="text/javascript" src="./proj4leaflet.js"></script>
+  <script type="text/javascript" src="./L.Graticule.js"></script>
+
+
+  <style>
+    html,
+    body {
+      height: 95%;
+    }
+
+    #map {
+      height: 100%; width: 100%;
+      background: #e5ffff;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div style="display:flex; padding:4px 0px 10px 0px;">
+    <div>projection :</div>
+    <div style='min-width:8px;'></div>
+    <div class='select-style'>
+      <select id=projection onchange="map_init();">
+        <option value="EPSG:2154,+proj=lcc +lat_1=30 +lat_2=60 +lat_0=0 +lon_0=126 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs,10000,40,120">Lambert Conformal Conic</option>
+        <option value="EPSG:3031,+proj=Polar_Stereographic +lat_0=90 +lat_ts=90 +lon_0=120 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs,20000,40,120">Polar Stereographic</option>
+        <option value="EPSG:32662,+proj=eqc +lat_0=0 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs,25000,0,0">Equidistant Cylindrical</option>
+      </select>
+    </div>
+    <!--
+    <div style='min-width:10px;'></div>
+    <div id="lat" style='border:1px solid gray; border-radius:3px; width:50px; height:18px; font-size:12px; padding:0px 3px 0px 3px;'></div>
+    <div style='min-width:10px;'></div>
+    <div id="lon" style='border:1px solid gray; border-radius:3px; width:50px; height:18px; font-size:12px; padding:0px 3px 0px 3px;'></div>
+    -->
+  </div>
+
+  <div style="height: 95%; width: 1200px; border:1px solid black;">
+    <div id="map"></div>
+  </div>
+
+
+  <script>
+
+  var map;
+  var geojsonData;
+  var geojsonVectorTile;
+
+  map_init(map);
+
+  function map_init() {
+    var projection = document.getElementById("projection").value.toString().split(',');
+    var resolutions = [];
+    for (var z=0; z<8; z++) {
+      resolutions[z] = parseFloat(projection[2])/Math.pow(1.5,z);
+    }
+    var lat_0 = parseFloat(projection[3]);
+    var lon_0 = parseFloat(projection[4]);
+
+    var lcc_crs = new L.Proj.CRS(projection[0], projection[1],
+      {
+          resolutions: resolutions
+      }
+    );
+
+    if (map == undefined) {
+      map = L.map('map', {
+          maxZoom: 8,
+          minZoom: 0,
+          crs: lcc_crs
+      }).setView([40, 120], 0);
+
+      // pane 추가
+      var mapPaneName1 = "geojson";
+      var mapPaneName2 = "graticule";
+
+      // pane layer 생성
+      map.createPane(mapPaneName1);
+      map.createPane(mapPaneName2);
+
+      // pane layer z-inex set
+      map.getPane(mapPaneName1).style.zIndex = 0;
+      map.getPane(mapPaneName2).style.zIndex = 100;
+
+      // pane layer 마우스 및 클릭 이벤트
+      map.getPane(mapPaneName1).style.pointerEvents = 'none';
+      map.getPane(mapPaneName2).style.pointerEvents = 'none';
+
+      var canvas = L.canvas({pane: "graticule", padding: 1.5});
+
+      L.graticule({ interval:20, style:{dashArray:'4,4', color:'#333', weight:1}, renderer: canvas }).addTo(map);
+
+      //map.on('mousemove', function(e) {
+      //  document.getElementById("lat").innerText = e.latlng.lat.toFixed(2);
+      //  document.getElementById("lon").innerText = e.latlng.lng.toFixed(2);
+      //});
+
+      fnGeoJson(map, mapPaneName1);
+    }
+    else {
+      if (geojsonVectorTile != undefined && geojsonVectorTile._leaflet_id != undefined) {
+        map.removeLayer(geojsonVectorTile);
+      }
+      map.options.crs = lcc_crs;
+      map.fire('viewreset');
+      map.invalidateSize();
+
+      var resolution = 1/map.options.crs._scales[0];
+      fnGeojsonBounds(map, geojsonData);
+      geojsonVectorTile = fnGeoTile(map, "geojson", geojsonData, resolution, true, "#ffffee");
+      geojsonVectorTile.addTo(map);
+      map.setView([lat_0, lon_0], 0);
+    }
+  }
+
+
+  function fnGeoJson(map, pane) {
+    var url = "https://raw.githubusercontent.com/hunter3789/geojson/main/custom.geo.50m.json";
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", url, true);
+    xhr.timeout = 60000;
+    xhr.overrideMimeType("application/json; charset=utf-8");
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState != 4 || xhr.status != 200) return;
+      else  {
+        geojsonData = JSON.parse(xhr.responseText);
+        var resolution = 1/map.options.crs._scales[0];
+
+        fnGeojsonBounds(map, geojsonData);
+        geojsonVectorTile = fnGeoTile(map, pane, geojsonData, resolution, true, "#ffffee");
+        geojsonVectorTile.addTo(map);
+      }
+    };
+    xhr.send();
+  }
+
+  function fnGeojsonBounds(map, data) {
+    for (var i=0; i<data.features.length; i++) {
+      var xmax = ymax = -999999.;
+      var xmin = ymin = 999999.;
+
+      if (data.features[i].geometry.type == "MultiPolygon") {
+        for (var j=0; j<data.features[i].geometry.coordinates.length; j++) {
+          for (var k=0; k<data.features[i].geometry.coordinates[j].length; k++) {
+            for (var l=0; l<data.features[i].geometry.coordinates[j][k].length; l++) {
+              var point = map.project(L.latLng([data.features[i].geometry.coordinates[j][k][l][1], data.features[i].geometry.coordinates[j][k][l][0]]), 0);
+
+              if (xmax <= point.x) {
+                xmax = point.x;
+              }
+
+              if (xmin >= point.x) {
+                xmin = point.x;
+              }
+
+              if (ymax <= point.y) {
+                ymax = point.y;
+              }
+
+              if (ymin >= point.y) {
+                ymin = point.y;
+              }
+            }
+          }
+        }
+
+        data.features[i].properties.xmax = xmax;
+        data.features[i].properties.xmin = xmin;
+        data.features[i].properties.ymax = ymax;
+        data.features[i].properties.ymin = ymin;
+        //console.log(data.features[i].properties.admin, data.features[i].properties.bounds);
+      }
+      else if (data.features[i].geometry.type == "Polygon") {
+        for (var j=0; j<data.features[i].geometry.coordinates.length; j++) {
+          for (var k=0; k<data.features[i].geometry.coordinates[j].length; k++) {
+              var point = map.project(L.latLng([data.features[i].geometry.coordinates[j][k][1], data.features[i].geometry.coordinates[j][k][0]]), 0);
+
+              if (xmax <= point.x) {
+                xmax = point.x;
+              }
+
+              if (xmin >= point.x) {
+                xmin = point.x;
+              }
+
+              if (ymax <= point.y) {
+                ymax = point.y;
+              }
+
+              if (ymin >= point.y) {
+                ymin = point.y;
+              }
+          }
+        }
+
+        data.features[i].properties.xmax = xmax;
+        data.features[i].properties.xmin = xmin;
+        data.features[i].properties.ymax = ymax;
+        data.features[i].properties.ymin = ymin;
+        //console.log(data.features[i].properties.admin, data.features[i].properties.bounds);
+      }
+    }
+  }
+
+  function fnGeoTile(map, pane, data, resolution, fill, color) {
+    var tiles = new L.GridLayer({tileSize:256, pane:pane});
+    tiles.createTile = function(coords) {
+      var tile = L.DomUtil.create('canvas', 'leaflet-tile');
+      var ctx = tile.getContext('2d');
+      var size = this.getTileSize()
+      tile.width = size.x
+      tile.height = size.y
+  
+      // calculate projection coordinates of top left tile pixel
+      var nwPoint = coords.scaleBy(size)
+      var ratio = resolution*map.options.crs._scales[coords.z];
+
+      for (var i=0; i<data.features.length; i++) {
+        var xmin = data.features[i].properties.xmin*ratio;
+        var ymin = data.features[i].properties.ymin*ratio;
+
+        var xmax = data.features[i].properties.xmax*ratio;
+        var ymax = data.features[i].properties.ymax*ratio;
+
+        if (xmax < nwPoint.x || xmin > nwPoint.x + tile.width || ymax < nwPoint.y || ymin > nwPoint.y + tile.height) {
+          continue;
+        }
+
+        drawTile(ctx, coords, i, nwPoint, fill, color);
+      }
+/*
+      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = 'blue';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(size.x, 0);
+      ctx.lineTo(size.x, size.y);
+      ctx.lineTo(0, size.y);
+      ctx.closePath();
+      ctx.stroke();
+*/
+      return tile;
+    }
+
+    function drawTile(ctx, coords, i, nwPoint, fill, color) {
+      ctx.strokeStyle = "black";
+      ctx.fillStyle = color;
+      ctx.beginPath();
+
+      if (data.features[i].geometry.type == "MultiPolygon") {
+        for (var j=0; j<data.features[i].geometry.coordinates.length; j++) {
+          for (var k=0; k<data.features[i].geometry.coordinates[j].length; k++) {
+            for (var l=0; l<data.features[i].geometry.coordinates[j][k].length; l++) {
+              var point = map.project(L.latLng([data.features[i].geometry.coordinates[j][k][l][1], data.features[i].geometry.coordinates[j][k][l][0]]), coords.z);
+              if (l==0) {
+                ctx.moveTo(point.x - nwPoint.x, point.y - nwPoint.y);
+              }
+              else {
+                ctx.lineTo(point.x - nwPoint.x, point.y - nwPoint.y);
+              }
+            }
+          }
+        }
+      }
+      else if (data.features[i].geometry.type == "Polygon") {
+        for (var j=0; j<data.features[i].geometry.coordinates.length; j++) {
+          for (var k=0; k<data.features[i].geometry.coordinates[j].length; k++) {
+            var point = map.project(L.latLng([data.features[i].geometry.coordinates[j][k][1], data.features[i].geometry.coordinates[j][k][0]]), coords.z);
+            if (k==0) {
+              ctx.moveTo(point.x - nwPoint.x, point.y - nwPoint.y);
+            }
+            else {
+              ctx.lineTo(point.x - nwPoint.x, point.y - nwPoint.y);
+            }
+          }
+        }
+      }
+
+      ctx.closePath();
+      if (fill == true) {
+        ctx.fill();
+      }
+      ctx.stroke();
+    }
+
+    return tiles;
+  }
+
+  </script>
+</body>
+
+</html>
